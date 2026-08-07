@@ -1,8 +1,14 @@
-.gradle/
-build/
-bin/
-out/
+# 공통
+.DS_Store
 .idea/
 *.iml
-*.class
-.DS_Store
+
+# 백엔드
+api/.gradle/
+api/build/
+api/bin/
+api/out/
+
+# 프론트엔드
+fe/node_modules/
+fe/dist/
