@@ -2,6 +2,8 @@ package com.sk.skala.trading.order;
 
 import com.sk.skala.trading.account.Account;
 import com.sk.skala.trading.account.AccountRepository;
+import com.sk.skala.trading.account.Holding;
+import com.sk.skala.trading.account.HoldingRepository;
 import com.sk.skala.trading.common.Response;
 import com.sk.skala.trading.exception.ResponseException;
 import com.sk.skala.trading.order.dto.OrderRequest;
@@ -38,6 +40,7 @@ class OrderMatchingTest {
     @Autowired private OrderService orderService;
     @Autowired private OrderRepository orderRepository;
     @Autowired private AccountRepository accountRepository;
+    @Autowired private HoldingRepository holdingRepository;
     @Autowired private StockRepository stockRepository;
 
     private Stock stock;
@@ -159,6 +162,40 @@ class OrderMatchingTest {
 
         assertThat(stockRepository.findById(stock.getId()).orElseThrow().getCurrentPrice())
                 .isEqualTo(price + 300);
+    }
+
+    @Test
+    @DisplayName("매수하면 보유 수량이 누적되고 평균 단가가 다시 계산된다")
+    void accumulatesHolding() {
+        long price = stock.getCurrentPrice();
+        orderService.placeOrder(SELLER, sell(stock, price, 10L));
+        orderService.placeOrder(BUYER, buy(stock, price, 10L));
+        orderService.placeOrder(SELLER, sell(stock, price + 1000, 10L));
+        orderService.placeOrder(BUYER, buy(stock, price + 1000, 10L));
+
+        Holding holding = holdingRepository
+                .findByAccountAndStock(accountRepository.findById(BUYER).orElseThrow(), stock)
+                .orElseThrow();
+
+        assertThat(holding.getQuantity()).isEqualTo(20L);
+        // (price*10 + (price+1000)*10) / 20 = price + 500
+        assertThat(holding.getAveragePrice()).isEqualTo(price + 500);
+    }
+
+    @Test
+    @DisplayName("전량 매도하면 보유 목록에서 사라진다")
+    void removesHolding_whenFullySold() {
+        long price = stock.getCurrentPrice();
+        orderService.placeOrder(SELLER, sell(stock, price, 10L));
+        orderService.placeOrder(BUYER, buy(stock, price, 10L));
+
+        Account buyer = accountRepository.findById(BUYER).orElseThrow();
+        assertThat(holdingRepository.findByAccountAndStock(buyer, stock)).isPresent();
+
+        // 산 만큼 전부 되판다. 0주짜리 보유 레코드가 남으면 자산 화면에 계속 보인다.
+        orderService.placeOrder(BUYER, sell(stock, price, 10L));
+
+        assertThat(holdingRepository.findByAccountAndStock(buyer, stock)).isEmpty();
     }
 
     @Test

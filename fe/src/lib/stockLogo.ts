@@ -1,10 +1,15 @@
 /**
- * 종목 아이콘 테마.
+ * 종목 아이콘.
  *
- * 실제 로고 이미지는 쓰지 않는다. 상표를 임의로 가져다 쓰는 셈이 되고,
- * 종목이 늘 때마다 이미지를 챙겨야 한다. 대신 종목코드를 해시해 팔레트에서 고른다.
- * 같은 종목은 어느 화면에서든 항상 같은 색으로 보인다.
+ * public/stock-logo/{종목코드}.png 를 먼저 쓰고, 없으면 이니셜로 떨어진다.
+ * 파일을 앱 안에 두는 이유는 외부 주소를 참조하면 네트워크가 없거나
+ * 그쪽이 바뀌었을 때 화면이 깨지기 때문이다.
  */
+export function stockLogoUrl(code: string) {
+  return `/stock-logo/${code}.png`
+}
+
+/** 이미지가 없을 때 쓰는 색 테마. 종목코드를 해시해 팔레트에서 고른다. */
 const THEMES = ['blue', 'green', 'purple', 'yellow', 'teal', 'orange'] as const
 
 export type AvatarTheme = (typeof THEMES)[number]
@@ -24,7 +29,7 @@ export function stockLogoClass(code: string) {
 }
 
 /**
- * 아이콘에 넣을 이니셜.
+ * 이미지가 없을 때 넣을 이니셜.
  * 영문·숫자는 두 글자를 대문자로, 한글은 앞 두 글자를 쓴다.
  * ("삼성전자" → 삼성 / "SK하이닉스" → SK)
  */

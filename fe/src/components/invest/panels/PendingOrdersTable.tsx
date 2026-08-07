@@ -68,7 +68,13 @@ export function PendingOrdersTable() {
                   {o.side === 'BUY' ? '매수' : '매도'}
                 </span>
               </td>
-              <td className="py-[5px] text-right font-bold text-foreground">{num(o.price)}</td>
+              <td className="py-[5px] text-right font-bold text-foreground">
+                {o.price === null ? (
+                  <span className="text-foreground-tertiary">시장가</span>
+                ) : (
+                  num(o.price)
+                )}
+              </td>
               <td className="py-[5px] text-right font-semibold text-foreground-secondary">
                 {num(o.quantity)}
               </td>

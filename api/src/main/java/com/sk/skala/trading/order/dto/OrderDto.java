@@ -32,7 +32,10 @@ public class OrderDto {
                 .stockName(o.getStock().getName())
                 .side(o.getSide())
                 .type(o.getType())
-                .price(o.getPrice())
+                // 시장가는 내부적으로 "상한 없음"을 Long.MAX_VALUE로 표현한다.
+                // 그 값이 그대로 나가면 화면에 9223372036854775807이 찍히므로 감춘다.
+                // 실제 체결가는 체결 내역에 남는다.
+                .price(o.getType() == OrderType.MARKET ? null : o.getPrice())
                 .quantity(o.getQuantity())
                 .filledQuantity(o.filledQuantity())
                 .remainingQuantity(o.getRemainingQuantity())

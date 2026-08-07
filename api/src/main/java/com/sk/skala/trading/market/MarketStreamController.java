@@ -14,7 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/market")
 @RequiredArgsConstructor
-@Tag(name = "실시간 시세", description = "체결·호가 변경을 실시간으로 밀어주는 스트림")
+@Tag(name = "실시간 시세", description = "체결·호가 변경을 실시간으로 전송하는 스트림")
 public class MarketStreamController {
 
     private final MarketEventBroadcaster broadcaster;

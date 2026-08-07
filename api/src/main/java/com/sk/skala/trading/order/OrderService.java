@@ -277,6 +277,12 @@ public class OrderService {
                     "보유 수량이 부족합니다. 보유: %d주, 주문: %d주".formatted(holding.getQuantity(), quantity));
         }
         holding.reduce(quantity);
+
+        // 전량 매도해 0주가 되면 보유 목록에서 지운다.
+        // 남겨두면 자산 화면에 "0주 보유" 항목이 계속 쌓인다.
+        if (holding.isEmpty()) {
+            holdingRepository.delete(holding);
+        }
     }
 
     /**

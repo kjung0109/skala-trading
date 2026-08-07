@@ -46,6 +46,8 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // 저장소는 H2 인메모리다. 압축을 풀고 바로 실행할 수 있어야 하고,
+    // 테스트도 별도 DB 없이 그대로 돌아가야 하기 때문이다.
     runtimeOnly 'com.h2database:h2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

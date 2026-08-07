@@ -9,8 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
 
 /**
  * 주문·취소를 가로채 감사 로그를 남긴다.
@@ -32,6 +35,17 @@ public class OrderAuditAspect {
     private final OrderAuditService auditService;
     private final SessionHandler sessionHandler;
     private final StockRepository stockRepository;
+
+    /**
+     * 감사 대상에서 제외할 계좌.
+     *
+     * 감사 로그의 목적은 사용자 행위 추적이다. 시장을 굴리는 계좌까지 기록하면
+     * 사람이 낸 주문이 묻히고 테이블만 계속 커진다.
+     * 처음엔 "bot"으로 시작하는 계좌만 걸렀는데, 호가 공급 계좌(market01)가 빠져
+     * 초당 두어 건씩 쌓이고 있었다.
+     */
+    @Value("${app.audit.exclude-accounts:market01,bot01,bot02}")
+    private Set<String> excludedAccounts;
 
     @Around("execution(* com.sk.skala.trading.order.OrderService.placeOrder(..))")
     public Object auditPlace(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -65,9 +79,7 @@ public class OrderAuditAspect {
     private void record(String accountId, OrderAuditLog.Action action, String detail,
                         boolean success, String message, long startedAt) {
         String who = accountId != null ? accountId : currentAccountId();
-        // 봇은 초당 여러 건을 내므로 기록하면 사람이 낸 주문이 묻힌다.
-        // 감사 로그의 목적은 사용자 행위 추적이므로 봇은 제외한다.
-        if (who == null || who.startsWith("bot")) {
+        if (who == null || excludedAccounts.contains(who)) {
             return;
         }
         auditService.record(who, action, detail, success, message, System.currentTimeMillis() - startedAt);

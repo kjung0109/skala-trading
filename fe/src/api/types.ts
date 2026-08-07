@@ -44,7 +44,8 @@ export type Order = {
   stockName: string
   side: OrderSide
   type: OrderType
-  price: number
+  /** 시장가 주문은 가격을 부르지 않으므로 null이다. */
+  price: number | null
   quantity: number
   filledQuantity: number
   remainingQuantity: number

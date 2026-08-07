@@ -5,6 +5,8 @@ import com.sk.skala.trading.stock.Stock;
 import com.sk.skala.trading.order.OrderService;
 import com.sk.skala.trading.stock.StockService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -28,12 +30,20 @@ public class StockController {
 
     @GetMapping("/{id}")
     @Operation(summary = "종목 상세 조회")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 종목")
+    })
     public Response getStockById(@PathVariable Long id) {
         return stockService.getStockById(id);
     }
 
     @GetMapping("/code/{code}")
     @Operation(summary = "종목 코드로 조회")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 종목코드")
+    })
     public Response getStockByCode(@PathVariable String code) {
         return stockService.getStockByCode(code);
     }
@@ -41,6 +51,10 @@ public class StockController {
     @GetMapping("/{id}/orderbook")
     @Operation(summary = "호가창 조회",
             description = "가격대별 매도·매수 미체결 잔량을 집계해 반환합니다")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공. 매도·매수 호가를 가격대별 잔량으로 반환"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 종목")
+    })
     public Response getOrderBook(@PathVariable Long id) {
         return orderService.getOrderBook(id);
     }

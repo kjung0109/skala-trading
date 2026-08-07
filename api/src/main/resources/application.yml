@@ -43,6 +43,10 @@ app:
     validity-seconds: 3600
   account:
     initial-balance: 100000000
+  audit:
+    # AOP 감사 로그에서 제외할 계좌. 시장을 굴리는 계좌는 사용자 행위가 아니다.
+    exclude-accounts: market01,bot01,bot02
+
   bot:
     # 자동 매매 봇. 끄려면 false
     enabled: true

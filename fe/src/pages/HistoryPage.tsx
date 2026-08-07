@@ -82,7 +82,13 @@ export function HistoryPage() {
                   <td className="text-center font-semibold text-foreground-tertiary">
                     {o.type === 'MARKET' ? '시장가' : '지정가'}
                   </td>
-                  <td className="text-right font-bold text-foreground">{num(o.price)}</td>
+                  <td className="text-right font-bold text-foreground">
+                    {o.price === null ? (
+                      <span className="text-foreground-tertiary">시장가</span>
+                    ) : (
+                      num(o.price)
+                    )}
+                  </td>
                   <td className="text-right font-semibold text-foreground-secondary">
                     {num(o.quantity)}
                   </td>

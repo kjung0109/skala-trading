@@ -44,18 +44,18 @@ export function LoginPage() {
 
         <div>
           <h1 className="text-[40px] leading-[1.25] font-extrabold tracking-tight">
-            주문이 만나
+            호가와 체결로 움직이는
             <br />
-            가격이 만들어지는 곳
+            모의 주식 거래
           </h1>
           <p className="mt-5 max-w-[420px] text-[15px] leading-relaxed text-white/70">
-            외부 시세 API를 쓰지 않습니다. 참여자가 낸 주문을 가격·시간 우선 원칙으로 직접
-            체결시키고, 그 결과가 그대로 현재가가 됩니다.
+            외부에서 시세를 받아오지 않습니다. 참여자가 낸 주문이 호가창에서 만나 체결되고, 그
+            가격이 곧 현재가가 됩니다.
           </p>
 
           <ul className="mt-9 space-y-3.5">
             <Feature icon={LineChart} text="가격·시간 우선 원칙의 주문 체결 엔진" />
-            <Feature icon={Activity} text="SSE로 밀어주는 실시간 호가와 체결" />
+            <Feature icon={Activity} text="SSE로 실시간 전송되는 호가와 체결" />
             <Feature icon={ShieldCheck} text="비관적 락으로 지켜지는 동시 주문 정합성" />
           </ul>
         </div>
@@ -103,7 +103,7 @@ export function LoginPage() {
             className="mt-5 w-full"
             disabled={pending || !accountId.trim() || !password}
           >
-            {pending ? '처리 중…' : mode === 'login' ? '로그인' : '계좌 개설하고 시작'}
+            {pending ? '처리 중…' : mode === 'login' ? '로그인' : '계좌 개설하고 시작하기'}
           </Button>
 
           <button
@@ -114,7 +114,7 @@ export function LoginPage() {
             }}
             className="mt-3.5 w-full text-[12px] font-bold text-foreground-tertiary transition hover:text-primary"
           >
-            {mode === 'login' ? '계좌가 없나요? 계좌 개설' : '이미 계좌가 있나요? 로그인'}
+            {mode === 'login' ? '계좌가 없으신가요? 계좌 개설하기' : '이미 계좌가 있으신가요? 로그인하기'}
           </button>
 
           {mode === 'login' && (
