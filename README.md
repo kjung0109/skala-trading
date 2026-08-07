@@ -86,67 +86,128 @@ docker compose up --build
 
 ## 도메인 모델
 
-```
-┌──────────────┐            ┌──────────────┐
-│   Account    │            │    Stock     │
-├──────────────┤            ├──────────────┤
-│ accountId PK │            │ id        PK │
-│ password     │            │ code      UK │
-│ balance      │            │ name         │
-│ version      │            │ currentPrice │
-└──────┬───────┘            │ previousPrice│
-       │                    └──────┬───────┘
-       │ 1                       1 │
-       │                           │
-       │      ┌──────────────┐     │
-       ├─────<│   Holding    │>────┤   보유 종목
-       │    N ├──────────────┤ N   │   (accountId + stockId 유일)
-       │      │ id        PK │     │
-       │      │ quantity     │     │
-       │      │ averagePrice │     │
-       │      └──────────────┘     │
-       │                           │
-       │      ┌──────────────┐     │
-       └─────<│    Order     │>────┤   주문
-            N ├──────────────┤ N   │
-              │ id        PK │     │
-              │ side         │     │   BUY / SELL
-              │ type         │     │   LIMIT / MARKET
-              │ price        │     │
-              │ quantity     │     │
-              │ remaining    │     │
-              │ status       │     │   OPEN / PARTIALLY_FILLED /
-              │ createdAt    │     │   FILLED / CANCELLED / EXPIRED
-              └──┬────────┬──┘     │
-              1  │        │  1     │
-                 │        │        │
-              ┌──┴────────┴──┐     │
-              │    Trade     │>────┘   체결
-              ├──────────────┤ N
-              │ id        PK │
-              │ buyOrderId FK│   매수 주문
-              │ sellOrderId  │   매도 주문
-              │ price        │   실제 체결가
-              │ quantity     │
-              │ tradedAt     │
-              └──────────────┘
+```mermaid
+erDiagram
+    ACCOUNT ||--o{ HOLDING : "보유한다"
+    ACCOUNT ||--o{ ORDERS  : "주문한다"
+    STOCK   ||--o{ HOLDING : "보유 대상"
+    STOCK   ||--o{ ORDERS  : "주문 대상"
+    STOCK   ||--o{ TRADE   : "체결 종목"
+    ORDERS  ||--o{ TRADE   : "매수 주문"
+    ORDERS  ||--o{ TRADE   : "매도 주문"
 
-┌──────────────────┐
-│  OrderAuditLog   │   AOP가 남기는 감사 로그.
-├──────────────────┤   주문 트랜잭션과 분리되어 있어(REQUIRES_NEW)
-│ id            PK │   외래키로 묶지 않는다. 롤백된 주문도 기록이 남아야 하므로
-│ accountId        │   존재하지 않는 주문을 참조하게 되기 때문이다.
-│ action           │   PLACE / CANCEL
-│ detail           │
-│ success          │
-│ message          │
-│ elapsedMs        │
-│ createdAt        │
-└──────────────────┘
+    ACCOUNT {
+        varchar   account_id  PK "계좌 아이디"
+        varchar   password       "BCrypt 해시"
+        bigint    balance        "예수금"
+        bigint    version        "낙관적 락"
+    }
+
+    STOCK {
+        bigint    id          PK
+        varchar   code        UK "종목코드"
+        varchar   name           "종목명"
+        bigint    current_price  "현재가 · 체결될 때마다 갱신"
+        bigint    previous_price "전일 종가"
+    }
+
+    HOLDING {
+        bigint    id          PK
+        varchar   account_id  FK
+        bigint    stock_id    FK
+        bigint    quantity       "보유 수량 · 0이 되면 삭제"
+        bigint    average_price  "평균 단가"
+    }
+
+    ORDERS {
+        bigint    id          PK
+        varchar   account_id  FK
+        bigint    stock_id    FK
+        varchar   side           "BUY / SELL"
+        varchar   type           "LIMIT / MARKET"
+        bigint    price          "주문 가격"
+        bigint    quantity       "주문 수량"
+        bigint    remaining_quantity "미체결 잔량"
+        varchar   status         "OPEN / PARTIALLY_FILLED / FILLED / CANCELLED / EXPIRED"
+        datetime  created_at     "시간 우선 판단 기준"
+    }
+
+    TRADE {
+        bigint    id            PK
+        bigint    stock_id      FK
+        bigint    buy_order_id  FK "매수 주문"
+        bigint    sell_order_id FK "매도 주문"
+        bigint    price            "실제 체결가"
+        bigint    quantity         "체결 수량"
+        datetime  traded_at
+    }
+
+    ORDER_AUDIT_LOG {
+        bigint    id          PK
+        varchar   account_id     "FK 아님 · 아래 설명 참고"
+        varchar   action         "PLACE / CANCEL"
+        varchar   detail         "요청 내용"
+        boolean   success
+        varchar   message        "체결 결과 또는 거절 사유"
+        bigint    elapsed_ms     "처리 소요 시간"
+        datetime  created_at
+    }
 ```
 
-**체결(Trade)이 주문을 두 번 참조하는 이유** — 하나의 체결은 매수 주문과 매도 주문이 만나서
+**체결(TRADE)이 주문을 두 번 참조하는 이유** — 하나의 체결은 매수 주문과 매도 주문이 만나서
 생깁니다. 어느 한쪽만 기록하면 상대를 되짚을 수 없어 정산 근거가 남지 않습니다.
+
+**감사 로그(ORDER_AUDIT_LOG)만 외래키가 없는 이유** — 이 기록은 주문 트랜잭션과 분리된
+트랜잭션에서 저장됩니다(`REQUIRES_NEW`). 거절되어 롤백된 주문도 기록이 남아야 하는데,
+외래키로 묶으면 존재하지 않는 주문을 참조하게 되어 저장 자체가 실패합니다.
+
+**보유 종목(HOLDING)의 유일 제약** — `account_id + stock_id`에 유니크 제약을 걸어
+같은 계좌가 같은 종목을 두 줄로 갖지 못하게 합니다. 재매수는 새 행이 아니라
+기존 행의 수량 누적과 평균 단가 재계산으로 처리됩니다.
+
+
+### 주문 상태 흐름
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> OPEN : 주문 접수
+
+    OPEN --> PARTIALLY_FILLED : 일부 체결
+    OPEN --> FILLED : 전량 체결
+    PARTIALLY_FILLED --> FILLED : 잔량까지 체결
+
+    OPEN --> CANCELLED : 사용자 취소
+    PARTIALLY_FILLED --> CANCELLED : 사용자 취소<br/>(미체결 잔량만)
+
+    OPEN --> EXPIRED : 시장가 · 상대 호가 부족
+    PARTIALLY_FILLED --> EXPIRED : 시장가 · 잔량 소멸
+
+    FILLED --> [*]
+    CANCELLED --> [*]
+    EXPIRED --> [*]
+
+    note right of PARTIALLY_FILLED
+        OPEN과 PARTIALLY_FILLED만
+        호가창에 남아 매칭 대상이 된다
+        (OrderStatus.isActive)
+    end note
+
+    note right of EXPIRED
+        시장가 전용 상태.
+        PARTIALLY_FILLED로 두면 호가창에 계속 잡혀
+        시장가가 지정가처럼 대기하게 된다
+    end note
+```
+
+**EXPIRED가 따로 있는 이유** — 처음에는 시장가의 미체결 잔량을 `PARTIALLY_FILLED`로 두었습니다.
+그랬더니 그 주문이 호가창 조회와 매칭 대상에 계속 잡혀, 가격을 부르지 않은 시장가 주문이
+지정가처럼 대기했습니다. 매수 시장가의 내부 상한값(`Long.MAX_VALUE`)이 호가창에 그대로
+노출되기까지 해서 별도 상태로 분리했습니다.
+
+**취소는 미체결 잔량에만 적용됩니다** — 이미 체결된 부분은 되돌리지 않습니다.
+`PARTIALLY_FILLED`에서 취소하면 남은 수량만큼의 예수금·보유 수량만 반환됩니다.
 
 ---
 
