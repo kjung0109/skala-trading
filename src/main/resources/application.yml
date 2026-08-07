@@ -33,7 +33,12 @@ app:
     secret: ${JWT_SECRET:skala-trading-api-local-development-secret-key-please-change-in-production}
     validity-seconds: 3600
   account:
-    initial-balance: 10000000
+    initial-balance: 100000000
+  bot:
+    # 자동 매매 봇. 끄려면 false
+    enabled: true
+    interval-ms: 3000
+    max-quantity: 15
 
 springdoc:
   api-docs:

@@ -55,21 +55,31 @@ public class DataInitializer {
             Account trader02 = new Account("trader02", encoded, 300_000_000L);
             Account trader03 = new Account("trader03", encoded, 500_000_000L);
             Account marketMaker = new Account(MARKET_MAKER, encoded, 10_000_000_000L);
-            accountRepository.saveAll(List.of(trader01, trader02, trader03, marketMaker));
+
+            // 자동 매매 봇 계좌.
+            // 같은 계좌끼리는 체결되지 않으므로(자전거래 방지) 둘로 나눠 서로 상대가 되게 한다.
+            Account bot01 = new Account("bot01", encoded, 10_000_000_000L);
+            Account bot02 = new Account("bot02", encoded, 10_000_000_000L);
+
+            accountRepository.saveAll(List.of(trader01, trader02, trader03, marketMaker, bot01, bot02));
 
             List<Stock> stocks = stockRepository.findAll();
 
             // 매도 주문을 내려면 주식을 갖고 있어야 한다. 유동성 공급 계좌에 물량을 준다.
-            stocks.forEach(stock ->
-                    holdingRepository.save(new Holding(marketMaker, stock, 10_000L, stock.getPreviousPrice())));
+            // 매도 주문을 내려면 주식을 갖고 있어야 한다. 공급 계좌와 봇에 물량을 준다.
+            stocks.forEach(stock -> {
+                holdingRepository.save(new Holding(marketMaker, stock, 10_000L, stock.getPreviousPrice()));
+                holdingRepository.save(new Holding(bot01, stock, 10_000L, stock.getPreviousPrice()));
+                holdingRepository.save(new Holding(bot02, stock, 10_000L, stock.getPreviousPrice()));
+            });
             holdingRepository.flush();
 
             // 호가창을 미리 채운다.
             // 이게 없으면 첫 주문은 상대가 없어 체결되지 않고 호가창에 등록만 된다.
             stocks.forEach(stock -> seedOrderBook(orderRepository, marketMaker, stock));
 
-            log.info("데모 데이터 생성 완료 - 계좌 {}개(비밀번호 {}), 종목 {}개 호가창 초기화",
-                    4, DEMO_PASSWORD, stocks.size());
+            log.info("데모 데이터 생성 완료 - 계좌 {}개(비밀번호 {}), 종목 {}개 호가창 초기화, 봇 계좌 2개",
+                    6, DEMO_PASSWORD, stocks.size());
         };
     }
 

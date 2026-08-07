@@ -13,8 +13,10 @@ import com.sk.skala.trading.exception.ResponseException;
 import com.sk.skala.trading.account.*;
 import com.sk.skala.trading.order.*;
 import com.sk.skala.trading.stock.StockRepository;
+import com.sk.skala.trading.market.MarketEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,7 @@ public class OrderService {
     private final AccountRepository accountRepository;
     private final StockRepository stockRepository;
     private final SessionHandler sessionHandler;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 주문 접수 후 즉시 매칭을 시도한다.
@@ -62,10 +65,18 @@ public class OrderService {
      * 두 요청이 같은 종목을 동시에 처리하면 같은 매도 주문을 각각 체결 대상으로 잡아
      * 잔량이 음수가 될 수 있다. 종목 단위로 직렬화해 이를 막는다.
      */
+    /** HTTP 요청용. 로그인한 계좌로 주문한다. */
     @Transactional
     public Response placeOrder(OrderRequest request) {
-        String accountId = sessionHandler.getCurrentAccountId();
+        return placeOrder(sessionHandler.getCurrentAccountId(), request);
+    }
 
+    /**
+     * 계좌를 직접 지정해 주문한다.
+     * 자동 매매 봇처럼 HTTP 요청 컨텍스트가 없는 곳에서 쓴다.
+     */
+    @Transactional
+    public Response placeOrder(String accountId, OrderRequest request) {
         // 1) 종목 잠금 — 이 시점부터 같은 종목의 다른 주문은 대기한다
         Stock stock = stockRepository.findByIdForUpdate(request.getStockId())
                 .orElseThrow(() -> new ResponseException(Error.DATA_NOT_FOUND,
@@ -107,6 +118,8 @@ public class OrderService {
         log.info("[ORDER] {} LIMIT {} {}주 @{} → 체결 {}건, 잔량 {}",
                 account.getAccountId(), order.getSide(), quantity, price,
                 trades.size(), order.getRemainingQuantity());
+
+        publishOrderBookChange(stock);
 
         return Response.success(OrderResultDto.of(order, trades));
     }
@@ -162,6 +175,8 @@ public class OrderService {
         log.info("[ORDER] {} MARKET {} {}주 → 체결 {}건, 미체결 {}주 취소",
                 account.getAccountId(), order.getSide(), quantity, trades.size(), unfilled);
 
+        publishOrderBookChange(stock);
+
         return Response.success(OrderResultDto.of(order, trades));
     }
 
@@ -202,6 +217,11 @@ public class OrderService {
             trades.add(trade);
 
             stock.applyTradePrice(tradePrice);
+
+            // 커밋된 뒤에만 화면으로 나가도록 트랜잭션 이벤트로 발행한다.
+            eventPublisher.publishEvent(MarketEvent.trade(
+                    stock.getId(), stock.getCode(), stock.getName(),
+                    tradePrice, tradeQuantity, order.getSide().name()));
         }
         return trades;
     }
@@ -227,6 +247,11 @@ public class OrderService {
                 .ifPresentOrElse(
                         h -> h.addBuy(quantity, tradePrice),
                         () -> holdingRepository.save(new Holding(buyer, stock, quantity, tradePrice)));
+    }
+
+    private void publishOrderBookChange(Stock stock) {
+        eventPublisher.publishEvent(MarketEvent.orderBook(
+                stock.getId(), stock.getCode(), stock.getName(), stock.getCurrentPrice()));
     }
 
     /** 묶어둔 보유 수량을 되돌린다. */
@@ -281,6 +306,7 @@ public class OrderService {
         }
 
         log.info("[CANCEL] {} 주문#{} 잔량 {}주 반환", accountId, orderId, remaining);
+        publishOrderBookChange(order.getStock());
         return Response.success(OrderDto.from(order));
     }
 
