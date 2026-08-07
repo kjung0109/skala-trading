@@ -1,15 +1,15 @@
 package com.sk.skala.trading.config;
 
-import com.sk.skala.trading.domain.Account;
-import com.sk.skala.trading.domain.Holding;
-import com.sk.skala.trading.domain.Order;
-import com.sk.skala.trading.domain.OrderSide;
-import com.sk.skala.trading.domain.OrderType;
-import com.sk.skala.trading.domain.Stock;
-import com.sk.skala.trading.repository.AccountRepository;
-import com.sk.skala.trading.repository.HoldingRepository;
-import com.sk.skala.trading.repository.OrderRepository;
-import com.sk.skala.trading.repository.StockRepository;
+import com.sk.skala.trading.account.Account;
+import com.sk.skala.trading.account.Holding;
+import com.sk.skala.trading.order.Order;
+import com.sk.skala.trading.order.OrderSide;
+import com.sk.skala.trading.order.OrderType;
+import com.sk.skala.trading.stock.Stock;
+import com.sk.skala.trading.account.AccountRepository;
+import com.sk.skala.trading.account.HoldingRepository;
+import com.sk.skala.trading.order.OrderRepository;
+import com.sk.skala.trading.stock.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationRunner;
