@@ -1,6 +1,6 @@
 spring:
   application:
-    name: skala-shop-api
+    name: skala-trading-api
 
   datasource:
     url: jdbc:h2:mem:tradingdb
@@ -30,7 +30,7 @@ spring:
 app:
   jwt:
     # 운영에서는 환경변수로 주입한다. 소스에 비밀키를 두지 않는다.
-    secret: ${JWT_SECRET:skala-shop-api-local-development-secret-key-please-change-in-production}
+    secret: ${JWT_SECRET:skala-trading-api-local-development-secret-key-please-change-in-production}
     validity-seconds: 3600
   account:
     initial-balance: 10000000
@@ -56,8 +56,8 @@ management:
 
 info:
   app:
-    name: SKALA SHOP API
-    description: 스칼라 온라인 쇼핑몰 REST API
+    name: SKALA Trading API
+    description: 호가·체결 기반 증권 거래 시스템
     version: 0.0.1-SNAPSHOT
 
 server:
@@ -65,4 +65,4 @@ server:
 
 logging:
   level:
-    com.sk.skala.shopapi: DEBUG
+    com.sk.skala.trading: DEBUG

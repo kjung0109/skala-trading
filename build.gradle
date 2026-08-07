@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.sk.skala'
 version = '0.0.1-SNAPSHOT'
-description = 'SKALA SHOP REST API'
+description = 'SKALA 증권 거래 시스템 REST API'
 
 java {
     toolchain {
