@@ -26,6 +26,11 @@ public class OrderResultDto {
             case FILLED -> "전량 체결되었습니다";
             case PARTIALLY_FILLED -> "%d주 체결, %d주는 호가창에 등록되었습니다"
                     .formatted(qty, order.getRemainingQuantity());
+            // 시장가는 호가창에 남기지 않으므로 못 채운 잔량은 소멸한다
+            case EXPIRED -> qty > 0
+                    ? "%d주 체결, 호가 물량이 부족해 잔량 %d주는 취소되었습니다"
+                            .formatted(qty, order.getRemainingQuantity())
+                    : "체결 가능한 호가가 없어 주문이 취소되었습니다";
             default -> "체결 가능한 상대 주문이 없어 호가창에 등록되었습니다";
         };
 

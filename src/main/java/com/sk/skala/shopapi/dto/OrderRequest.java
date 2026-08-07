@@ -1,6 +1,7 @@
 package com.sk.skala.shopapi.dto;
 
 import com.sk.skala.shopapi.domain.OrderSide;
+import com.sk.skala.shopapi.domain.OrderType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -13,13 +14,21 @@ import lombok.Setter;
 @NoArgsConstructor
 public class OrderRequest {
 
+    public boolean isMarketOrder() {
+        return type == OrderType.MARKET;
+    }
+
+
     @NotNull(message = "종목 ID는 필수입니다")
     private Long stockId;
 
     @NotNull(message = "매수/매도 구분은 필수입니다")
     private OrderSide side;
 
-    @NotNull(message = "주문 가격은 필수입니다")
+    /** 지정가(LIMIT) / 시장가(MARKET). 생략하면 지정가로 본다. */
+    private OrderType type = OrderType.LIMIT;
+
+    /** 지정가 주문에서만 필수. 시장가는 비워 보낸다. */
     @Min(value = 1, message = "주문 가격은 1원 이상이어야 합니다")
     private Long price;
 

@@ -6,6 +6,7 @@ import com.sk.skala.shopapi.common.Response;
 import com.sk.skala.shopapi.common.SessionHandler;
 import com.sk.skala.shopapi.domain.*;
 import com.sk.skala.shopapi.dto.*;
+import com.sk.skala.shopapi.exception.ParameterException;
 import com.sk.skala.shopapi.exception.ResponseException;
 import com.sk.skala.shopapi.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -61,34 +62,109 @@ public class OrderService {
                 .orElseThrow(() -> new ResponseException(Error.DATA_NOT_FOUND,
                         "계좌를 찾을 수 없습니다: " + accountId));
 
+        return request.isMarketOrder()
+                ? placeMarketOrder(request, account, stock)
+                : placeLimitOrder(request, account, stock);
+    }
+
+    /**
+     * 지정가 주문.
+     * 매수는 예수금을, 매도는 보유 수량을 주문 시점에 묶는다.
+     * 체결될 때가 아니라 주문 시점에 묶어야 잔고보다 많은 주문을 여러 건 낼 수 없다.
+     */
+    private Response placeLimitOrder(OrderRequest request, Account account, Stock stock) {
+        if (request.getPrice() == null) {
+            throw new ParameterException("price");
+        }
+
         long price = request.getPrice();
         long quantity = request.getQuantity();
 
-        // 2) 자원 선점 — 주문을 내는 순간 예수금(매수) 또는 보유 수량(매도)을 묶는다.
-        //    체결될 때가 아니라 주문 시점에 묶어야, 잔고보다 많은 주문을 여러 건 낼 수 없다.
         if (request.getSide() == OrderSide.BUY) {
             account.withdraw(price * quantity);
         } else {
             reserveHolding(account, stock, quantity);
         }
 
-        Order order = orderRepository.save(new Order(account, stock, request.getSide(), price, quantity));
+        Order order = orderRepository.save(
+                new Order(account, stock, request.getSide(), OrderType.LIMIT, price, quantity));
 
-        // 3) 매칭
-        List<Trade> trades = match(order, stock);
+        List<Trade> trades = match(order, stock, false);
 
-        log.info("[ORDER] {} {} {}주 @{} → 체결 {}건, 잔량 {}",
-                accountId, order.getSide(), quantity, price, trades.size(), order.getRemainingQuantity());
+        log.info("[ORDER] {} LIMIT {} {}주 @{} → 체결 {}건, 잔량 {}",
+                account.getAccountId(), order.getSide(), quantity, price,
+                trades.size(), order.getRemainingQuantity());
 
         return Response.success(OrderResultDto.of(order, trades));
     }
 
-    private List<Trade> match(Order order, Stock stock) {
-        List<Order> counterparts = (order.getSide() == OrderSide.BUY)
-                ? orderRepository.findMatchableSellOrders(stock.getId(), order.getPrice(),
-                        order.getAccount().getAccountId())
-                : orderRepository.findMatchableBuyOrders(stock.getId(), order.getPrice(),
-                        order.getAccount().getAccountId());
+    /**
+     * 시장가 주문.
+     *
+     * 가격을 지정하지 않으므로 얼마가 필요한지 미리 알 수 없다.
+     * 그래서 호가창을 먼저 훑어 실제 체결될 금액을 계산한 뒤 그만큼만 묶는다.
+     * 채우지 못한 잔량은 호가창에 남기지 않고 취소한다.
+     */
+    private Response placeMarketOrder(OrderRequest request, Account account, Stock stock) {
+        long quantity = request.getQuantity();
+
+        List<Order> book = (request.getSide() == OrderSide.BUY)
+                ? orderRepository.findBestSellOrders(stock.getId(), account.getAccountId())
+                : orderRepository.findBestBuyOrders(stock.getId(), account.getAccountId());
+
+        if (book.isEmpty()) {
+            throw new ResponseException(Error.NO_LIQUIDITY,
+                    "체결 가능한 호가가 없습니다. 지정가 주문을 이용해 주세요");
+        }
+
+        if (request.getSide() == OrderSide.BUY) {
+            // 실제로 체결될 금액을 먼저 계산한다. 호가를 싼 것부터 훑으며 필요한 만큼만 더한다.
+            long need = 0, left = quantity;
+            for (Order o : book) {
+                if (left == 0) break;
+                long q = Math.min(left, o.getRemainingQuantity());
+                need += o.getPrice() * q;
+                left -= q;
+            }
+            account.withdraw(need);
+        } else {
+            reserveHolding(account, stock, quantity);
+        }
+
+        // 시장가는 가격 제약이 없다는 뜻으로, 매수는 상한 없음 / 매도는 하한 없음으로 둔다.
+        long boundPrice = (request.getSide() == OrderSide.BUY) ? Long.MAX_VALUE : 0L;
+        Order order = orderRepository.save(
+                new Order(account, stock, request.getSide(), OrderType.MARKET, boundPrice, quantity));
+
+        List<Trade> trades = match(order, stock, true);
+
+        // 못 채운 잔량 정리. 매수는 체결될 금액만 묶었으므로 환급이 없고,
+        // 매도는 묶어둔 보유 수량을 돌려준다.
+        long unfilled = order.getRemainingQuantity();
+        if (unfilled > 0 && request.getSide() == OrderSide.SELL) {
+            restoreHolding(account, stock, unfilled);
+        }
+        order.expireRemaining();
+
+        log.info("[ORDER] {} MARKET {} {}주 → 체결 {}건, 미체결 {}주 취소",
+                account.getAccountId(), order.getSide(), quantity, trades.size(), unfilled);
+
+        return Response.success(OrderResultDto.of(order, trades));
+    }
+
+    private List<Trade> match(Order order, Stock stock, boolean market) {
+        String accountId = order.getAccount().getAccountId();
+
+        List<Order> counterparts;
+        if (market) {
+            counterparts = (order.getSide() == OrderSide.BUY)
+                    ? orderRepository.findBestSellOrders(stock.getId(), accountId)
+                    : orderRepository.findBestBuyOrders(stock.getId(), accountId);
+        } else {
+            counterparts = (order.getSide() == OrderSide.BUY)
+                    ? orderRepository.findMatchableSellOrders(stock.getId(), order.getPrice(), accountId)
+                    : orderRepository.findMatchableBuyOrders(stock.getId(), order.getPrice(), accountId);
+        }
 
         List<Trade> trades = new ArrayList<>();
 
@@ -122,11 +198,13 @@ public class OrderService {
         Account buyer = buyOrder.getAccount();
         Account seller = sellOrder.getAccount();
 
-        // 매수자는 주문 시 자기 지정가로 예수금을 묶어뒀다.
-        // 더 싼 가격에 체결됐다면 그 차액은 돌려준다.
-        long refund = (buyOrder.getPrice() - tradePrice) * quantity;
-        if (refund > 0) {
-            buyer.deposit(refund);
+        // 지정가 매수는 자기 지정가로 예수금을 묶어뒀다. 더 싸게 체결됐다면 차액을 돌려준다.
+        // 시장가는 실제 체결될 금액만 묶었으므로 환급 대상이 아니다.
+        if (buyOrder.getType() == OrderType.LIMIT) {
+            long refund = (buyOrder.getPrice() - tradePrice) * quantity;
+            if (refund > 0) {
+                buyer.deposit(refund);
+            }
         }
 
         // 매도자는 주문 시 보유 수량을 이미 차감했으므로 대금만 받는다.
@@ -136,6 +214,15 @@ public class OrderService {
                 .ifPresentOrElse(
                         h -> h.addBuy(quantity, tradePrice),
                         () -> holdingRepository.save(new Holding(buyer, stock, quantity, tradePrice)));
+    }
+
+    /** 묶어둔 보유 수량을 되돌린다. */
+    private void restoreHolding(Account account, Stock stock, long quantity) {
+        holdingRepository.findByAccountAndStock(account, stock)
+                .ifPresentOrElse(
+                        h -> h.addBuy(quantity, h.getAveragePrice()),
+                        () -> holdingRepository.save(
+                                new Holding(account, stock, quantity, stock.getCurrentPrice())));
     }
 
     /** 매도 주문 시 보유 수량을 묶는다. 부족하면 주문 자체가 거부된다. */

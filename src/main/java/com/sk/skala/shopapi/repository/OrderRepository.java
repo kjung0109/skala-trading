@@ -51,6 +51,32 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                                        @Param("price") Long price,
                                        @Param("accountId") String accountId);
 
+    /** 시장가 매수: 가격 조건 없이 가장 싼 매도부터 */
+    @Query("""
+            select o from Order o
+            join fetch o.account
+            where o.stock.id = :stockId
+              and o.side = com.sk.skala.shopapi.domain.OrderSide.SELL
+              and o.status in (com.sk.skala.shopapi.domain.OrderStatus.OPEN,
+                               com.sk.skala.shopapi.domain.OrderStatus.PARTIALLY_FILLED)
+              and o.account.accountId <> :accountId
+            order by o.price asc, o.createdAt asc
+            """)
+    List<Order> findBestSellOrders(@Param("stockId") Long stockId, @Param("accountId") String accountId);
+
+    /** 시장가 매도: 가격 조건 없이 가장 비싼 매수부터 */
+    @Query("""
+            select o from Order o
+            join fetch o.account
+            where o.stock.id = :stockId
+              and o.side = com.sk.skala.shopapi.domain.OrderSide.BUY
+              and o.status in (com.sk.skala.shopapi.domain.OrderStatus.OPEN,
+                               com.sk.skala.shopapi.domain.OrderStatus.PARTIALLY_FILLED)
+              and o.account.accountId <> :accountId
+            order by o.price desc, o.createdAt asc
+            """)
+    List<Order> findBestBuyOrders(@Param("stockId") Long stockId, @Param("accountId") String accountId);
+
     /** 호가창: 가격대별 잔량 합계 */
     @Query("""
             select o.price, sum(o.remainingQuantity)

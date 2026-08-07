@@ -3,6 +3,7 @@ package com.sk.skala.shopapi.dto;
 import com.sk.skala.shopapi.domain.Order;
 import com.sk.skala.shopapi.domain.OrderSide;
 import com.sk.skala.shopapi.domain.OrderStatus;
+import com.sk.skala.shopapi.domain.OrderType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -16,6 +17,7 @@ public class OrderDto {
     private String stockCode;
     private String stockName;
     private OrderSide side;
+    private OrderType type;
     private Long price;
     private Long quantity;
     private Long filledQuantity;
@@ -29,6 +31,7 @@ public class OrderDto {
                 .stockCode(o.getStock().getCode())
                 .stockName(o.getStock().getName())
                 .side(o.getSide())
+                .type(o.getType())
                 .price(o.getPrice())
                 .quantity(o.getQuantity())
                 .filledQuantity(o.filledQuantity())

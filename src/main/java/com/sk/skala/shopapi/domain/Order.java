@@ -41,6 +41,10 @@ public class Order {
     @Column(nullable = false, length = 10)
     private OrderSide side;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private OrderType type;
+
     /** 지정가 */
     @Column(nullable = false)
     private Long price;
@@ -59,10 +63,11 @@ public class Order {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    public Order(Account account, Stock stock, OrderSide side, Long price, Long quantity) {
+    public Order(Account account, Stock stock, OrderSide side, OrderType type, Long price, Long quantity) {
         this.account = account;
         this.stock = stock;
         this.side = side;
+        this.type = type;
         this.price = price;
         this.quantity = quantity;
         this.remainingQuantity = quantity;
@@ -91,5 +96,18 @@ public class Order {
 
     public long filledQuantity() {
         return quantity - remainingQuantity;
+    }
+
+    /**
+     * 시장가 주문의 미체결 잔량을 정리한다.
+     * 시장가는 호가창에 남기지 않는 것이 원칙이므로, 채우지 못한 만큼은 취소 처리한다.
+     */
+    public void expireRemaining() {
+        if (remainingQuantity > 0) {
+            // 잔량이 남으면 EXPIRED로 둔다.
+            // PARTIALLY_FILLED로 두면 호가창 조회·매칭 대상에 계속 잡혀
+            // 시장가 주문이 지정가처럼 대기하게 된다.
+            this.status = OrderStatus.EXPIRED;
+        }
     }
 }

@@ -19,6 +19,7 @@ public enum Error {
     ORDER_ALREADY_FILLED(HttpStatus.CONFLICT, "이미 전량 체결된 주문입니다"),
     ORDER_ALREADY_CANCELLED(HttpStatus.CONFLICT, "이미 취소된 주문입니다"),
     NOT_ORDER_OWNER(HttpStatus.FORBIDDEN, "본인의 주문만 처리할 수 있습니다"),
+    NO_LIQUIDITY(HttpStatus.BAD_REQUEST, "체결 가능한 호가가 없습니다"),
     INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다"),
     NOT_AUTHENTICATED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다"),
     CONCURRENT_UPDATE(HttpStatus.CONFLICT, "동시에 처리된 요청이 있습니다. 다시 시도해 주세요"),
