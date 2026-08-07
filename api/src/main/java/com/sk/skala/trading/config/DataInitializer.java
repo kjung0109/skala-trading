@@ -12,6 +12,7 @@ import com.sk.skala.trading.order.OrderRepository;
 import com.sk.skala.trading.stock.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,6 +37,13 @@ public class DataInitializer {
 
     /** 유동성 공급 계좌. 앱이 뜰 때 호가창을 채워 첫 주문부터 체결되게 한다. */
     private static final String MARKET_MAKER = "market01";
+
+    /**
+     * 호가창 초기 시딩 여부.
+     * 테스트에서는 호가를 직접 만들어 검증해야 하므로 false로 끈다.
+     */
+    @Value("${app.demo.seed-order-book:true}")
+    private boolean seedOrderBook;
 
     @Bean
     public ApplicationRunner initData(AccountRepository accountRepository,
@@ -76,7 +84,9 @@ public class DataInitializer {
 
             // 호가창을 미리 채운다.
             // 이게 없으면 첫 주문은 상대가 없어 체결되지 않고 호가창에 등록만 된다.
-            stocks.forEach(stock -> seedOrderBook(orderRepository, marketMaker, stock));
+            if (seedOrderBook) {
+                stocks.forEach(stock -> seedOrderBook(orderRepository, marketMaker, stock));
+            }
 
             log.info("데모 데이터 생성 완료 - 계좌 {}개(비밀번호 {}), 종목 {}개 호가창 초기화, 봇 계좌 2개",
                     6, DEMO_PASSWORD, stocks.size());

@@ -49,6 +49,9 @@ import com.sk.skala.trading.order.dto.TradeDto;
 @Transactional(readOnly = true)
 public class OrderService {
 
+    /** 종목 체결 테이프에 내려줄 최근 체결 건수 */
+    private static final int RECENT_TRADE_LIMIT = 200;
+
     private final OrderRepository orderRepository;
     private final TradeRepository tradeRepository;
     private final HoldingRepository holdingRepository;
@@ -337,10 +340,11 @@ public class OrderService {
         return Response.success(PagedList.of(page, offset, count, t -> TradeDto.from(t, accountId)));
     }
 
-    /** 종목별 체결 내역 */
+    /** 종목별 최근 체결 내역 */
     public Response getStockTrades(Long stockId) {
-        return Response.success(tradeRepository.findByStockId(stockId).stream()
-                .map(t -> TradeDto.from(t, null))
-                .toList());
+        return Response.success(
+                tradeRepository.findByStockId(stockId, PageRequest.of(0, RECENT_TRADE_LIMIT)).stream()
+                        .map(t -> TradeDto.from(t, null))
+                        .toList());
     }
 }

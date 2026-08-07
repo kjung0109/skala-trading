@@ -37,7 +37,10 @@ app:
   bot:
     # 자동 매매 봇. 끄려면 false
     enabled: true
-    interval-ms: 3000
+    interval-ms: 1200      # 주문 주기
+    min-depth: 6           # 매도/매수 각각 유지할 최소 호가 단계 수
+    takers-per-tick: 3     # 한 번에 낼 체결 유발 주문 수
+    market-ratio: 35       # 체결 유발 주문 중 시장가 비율(%)
     max-quantity: 15
 
 springdoc:

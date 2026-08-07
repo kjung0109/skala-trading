@@ -1,113 +1,227 @@
 @import 'tailwindcss';
 
+/* Pretendard는 index.html에서 <link>로 먼저 받는다.
+   CSS @import로 두면 Tailwind가 인라인된 뒤로 밀려 규칙 순서 경고가 난다. */
+
+/* ─────────────────────────────────────────────
+   Design Tokens (Tailwind v4 @theme)
+
+   --color-{name} → text-{name} / bg-{name} / border-{name} 이 자동 생성된다.
+   화면 코드에서는 하드코딩(bg-[#0046FF]) 대신 항상 토큰 클래스를 쓴다.
+
+   텍스트 색은 Tailwind의 text-primary(=브랜드색)와 충돌하므로
+   foreground-*, 배경은 background/surface-*, 보더는 stroke-* 로 나눈다.
+───────────────────────────────────────────── */
 @theme {
-  /* ─── Brand ─── */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+
+  /* ── Brand ── */
   --color-primary: #0046ff;
-  --color-primary-tint: #eef3ff;
-  --color-primary-dark: #2a4a9c;
-  --color-primary-faint: #e3ebff;
+  --color-primary-hover: #0035cc;
+  --color-primary-light: #eef2ff;
+  --color-primary-border: #c7d2fe;
+  --color-primary-dim: #e0e7ff;
 
-  /* ─── Text ─── */
-  --color-ink: #191f28;
-  --color-ink-sub: #5b6573;
-  --color-ink-hint: #8b95a1;
-  --color-disabled: #c4cad4;
+  /* ── 주가 방향 · 국내 증시 관례: 상승 빨강 / 하락 파랑 ── */
+  --color-up: #e8393e;
+  --color-up-bg: #fff0f1;
+  --color-up-border: #ffbfc1;
+  --color-up-fill: rgba(232, 57, 62, 0.1);
+  --color-down: #0075e8;
+  --color-down-bg: #eff6ff;
+  --color-down-border: #bfdbfe;
+  --color-down-fill: rgba(0, 117, 232, 0.1);
 
-  /* ─── 국내 증시 관례: 상승 빨강 · 하락 파랑 ─── */
-  --color-up: #f04452;
-  --color-up-bg: #fdeef0;
-  --color-down: #1763e8;
-  --color-down-bg: #eaf1fe;
+  /* ── 상태 ── */
+  --color-live: #12b76a;
+  --color-danger: #ff3b30;
+  --color-warning: #ff9500;
 
-  /* ─── Status ─── */
-  --color-success: #069a53;
-  --color-success-bg: #e9f7f0;
-  --color-warning: #dd7a06;
-  --color-warning-bg: #fdf3e5;
-  --color-danger: #c0566a;
-  --color-danger-bg: #faf0f3;
+  /* ── 텍스트 ── */
+  --color-foreground: #191f28;
+  --color-foreground-secondary: #374151;
+  --color-foreground-tertiary: #6b7280;
+  --color-foreground-disabled: #9ca3af;
 
-  /* ─── Surface ─── */
-  --color-surface: #f7f8fa;
-  --color-surface-muted: #f2f4f7;
-  --color-page: #f2f4f6;
-  --color-line: #e7eaee;
-  --color-divider: #f0f2f5;
-  --color-nav: #9aa3b0;
+  /* ── 배경 ── */
+  --color-background: #f4f6fa;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f8f9fb;
+  --color-surface-muted: #f3f4f6;
 
-  /* ─── Font ─── */
-  --font-sans: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  /* ── 보더 ── */
+  --color-stroke: #eaecf0;
+  --color-stroke-subtle: #f3f4f6;
+  --color-stroke-input: #e5e7eb;
+  --color-widget-border-hover: #bfd0ff;
 
-  /* ─── Font Sizes ─── */
-  --text-caption: 0.75rem;
-  --text-caption--line-height: 1.3;
-  --text-sub: 0.8125rem;
-  --text-sub--line-height: 1.6;
-  --text-body: 0.875rem;
-  --text-body--line-height: 1.6;
-  --text-md: 0.9375rem;
-  --text-md--line-height: 1.5;
-  --text-btn: 1.0625rem;
-  --text-btn--line-height: 1;
-  --text-card: 1.125rem;
-  --text-card--line-height: 1.3;
-  --text-heading: 1.40625rem;
-  --text-heading--line-height: 1.47;
-  --text-display: 1.5rem;
-  --text-display--line-height: 1.2;
-  --text-jumbo: 2rem;
-  --text-jumbo--line-height: 1.15;
+  /* ── 종목 아바타 테마 ── */
+  --color-avatar-blue-bg: #eef2ff;
+  --color-avatar-blue-border: #c7d2fe;
+  --color-avatar-blue-text: #0046ff;
+  --color-avatar-green-bg: #ecfdf5;
+  --color-avatar-green-border: #a7f3d0;
+  --color-avatar-green-text: #059669;
+  --color-avatar-purple-bg: #f5f3ff;
+  --color-avatar-purple-border: #ddd6fe;
+  --color-avatar-purple-text: #7c3aed;
+  --color-avatar-yellow-bg: #fefce8;
+  --color-avatar-yellow-border: #fef08a;
+  --color-avatar-yellow-text: #ca8a04;
+  --color-avatar-teal-bg: #f0fdfa;
+  --color-avatar-teal-border: #99f6e4;
+  --color-avatar-teal-text: #0d9488;
+  --color-avatar-orange-bg: #fff7ed;
+  --color-avatar-orange-border: #fed7aa;
+  --color-avatar-orange-text: #ea580c;
 
-  /* ─── Radius ─── */
-  --radius-badge: 9px;
-  --radius-icon: 10px;
-  --radius-btn: 12px;
-  --radius-card: 14px;
-  --radius-card-lg: 16px;
-  --radius-card-xl: 20px;
+  /* ── 레이아웃 구조값 (여러 컴포넌트가 같이 참조한다) ── */
+  --spacing-header: 56px;
+  --spacing-sidebar: 68px;
+
+  /* ── Shadow ── */
+  --shadow-control: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-primary-btn: 0 4px 14px rgba(0, 70, 255, 0.25);
+  --shadow-up-btn: 0 4px 14px rgba(232, 57, 62, 0.3);
+  --shadow-down-btn: 0 4px 14px rgba(0, 117, 232, 0.25);
+  --shadow-dropdown: 0 10px 30px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 20px 50px rgba(0, 0, 0, 0.22);
+  --shadow-toast: 0 8px 20px rgba(15, 23, 42, 0.08);
+  --shadow-focus-ring: 0 0 0 3px rgba(0, 70, 255, 0.08);
+
+  /* ── Brand Gradient (로그인 브랜드 패널) ── */
+  --background-image-primary-gradient: linear-gradient(
+    145deg,
+    #0035cc 0%,
+    #0046ff 50%,
+    #2563eb 100%
+  );
+
+  /* ── Animation ── */
+  --animate-pulse-dot: pulse-dot 2000ms ease-in-out infinite;
+  --animate-modal-in: modal-in 200ms ease both;
+  --animate-row-in: row-in 240ms ease both;
 }
 
-:root {
-  --shadow-card: 0 2px 8px 0 rgb(0 0 0 / 0.08);
-  --shadow-float: 0 5px 20px 0 rgb(0 0 0 / 0.1);
+/* ─────────────────────────────────────────────
+   Keyframes
+───────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
 }
 
-@layer base {
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: var(--font-sans);
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  body {
-    background: #e9ecf1;
-    color: var(--color-ink);
-    -webkit-font-smoothing: antialiased;
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  button {
-    transition: transform 100ms ease;
-    cursor: pointer;
+/* 값이 바뀐 자리를 잠깐 강조해 "지금 움직였다"를 눈으로 보이게 한다 */
+@keyframes flash-up {
+  0% {
+    background-color: var(--color-up-bg);
   }
-  button:active:not(:disabled) {
-    transform: scale(0.97);
+  100% {
+    background-color: transparent;
   }
+}
+@keyframes flash-down {
+  0% {
+    background-color: var(--color-down-bg);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
 
-  /* 숫자는 자리수가 흔들리지 않게 */
+/* ─────────────────────────────────────────────
+   Base
+───────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  height: 100vh;
+  overflow: hidden; /* 데스크톱 고정 레이아웃 — 스크롤은 각 패널이 담당한다 */
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-stroke);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-stroke-input);
+}
+
+@layer utilities {
+  /* 숫자가 흔들리지 않게 고정폭 자릿수 */
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+  .flash-up {
+    animation: flash-up 0.7s ease-out;
+  }
+  .flash-down {
+    animation: flash-down 0.7s ease-out;
+  }
 }
-
-/* 체결 시 값이 바뀐 곳을 잠깐 강조한다 */
-@keyframes flash-up {
-  0% { background-color: var(--color-up-bg); }
-  100% { background-color: transparent; }
-}
-@keyframes flash-down {
-  0% { background-color: var(--color-down-bg); }
-  100% { background-color: transparent; }
-}
-.flash-up { animation: flash-up 0.6s ease-out; }
-.flash-down { animation: flash-down 0.6s ease-out; }

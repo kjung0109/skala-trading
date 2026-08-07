@@ -11,13 +11,17 @@ import java.util.List;
 
 public interface TradeRepository extends JpaRepository<Trade, Long> {
 
+    /**
+     * 종목별 최근 체결. 봇이 계속 거래하므로 전체를 내려주면 응답이 끝없이 커진다.
+     * 화면(체결 테이프·가격 추이)에 필요한 만큼만 Pageable로 잘라 가져온다.
+     */
     @Query("""
             select t from Trade t
             join fetch t.stock
             where t.stock.id = :stockId
             order by t.tradedAt desc
             """)
-    List<Trade> findByStockId(@Param("stockId") Long stockId);
+    List<Trade> findByStockId(@Param("stockId") Long stockId, Pageable pageable);
 
     /** 내 체결 내역. 매수·매도 어느 쪽이든 내 주문이면 포함한다. */
     @Query("""
