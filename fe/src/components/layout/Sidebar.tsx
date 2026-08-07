@@ -11,14 +11,14 @@ const NAV = [
 
 export function Sidebar() {
   return (
-    <nav className="flex w-sidebar shrink-0 flex-col items-center gap-1 border-r border-stroke bg-surface py-3">
+    <nav className="flex w-[56px] shrink-0 flex-col items-center gap-1 border-r border-stroke bg-surface py-3 xl:w-sidebar">
       {NAV.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
           className={({ isActive }) =>
             cn(
-              'flex w-[52px] flex-col items-center gap-1 rounded-xl py-2 transition',
+              'flex w-[46px] flex-col items-center gap-1 rounded-xl py-2 transition xl:w-[52px]',
               isActive
                 ? 'bg-primary-light text-primary'
                 : 'text-foreground-tertiary hover:bg-surface-muted hover:text-foreground-secondary',

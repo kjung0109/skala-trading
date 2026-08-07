@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { stockApi } from '../api/endpoints'
 import type { Stock } from '../api/types'
 import { Panel } from '../components/ui/Panel'
+import { PriceChange } from '../components/ui/PriceChange'
 import { StockAvatar } from '../components/ui/StockAvatar'
 import { cn } from '../lib/cn'
-import { arrowOf, badgeToneOf, num, rate, signed, toneOf } from '../lib/format'
+import { num, toneOf } from '../lib/format'
 import { qk } from '../lib/queryClient'
 import { useUIStore } from '../store/useUIStore'
 
@@ -46,7 +47,7 @@ export function MarketPage() {
   }
 
   return (
-    <div className="h-full min-h-0 p-2.5">
+    <div className="min-h-0 p-2.5 xl:h-full">
       <Panel
         title="전체 시세"
         action={
@@ -56,10 +57,10 @@ export function MarketPage() {
             <span className="text-down">▼ {falling}</span>
           </span>
         }
-        className="h-full"
+        className="min-h-[420px] xl:h-full"
         scroll
       >
-        <table className="w-full text-[13px] tnum">
+        <table className="w-full min-w-[640px] text-[13px] tnum">
           <thead className="sticky top-0 z-10 bg-surface-subtle text-[11px] font-bold text-foreground-tertiary">
             <tr className="border-b border-stroke">
               <SortableTh className="w-[34%] pl-5 text-left" onClick={() => toggle('name')}>
@@ -96,18 +97,11 @@ export function MarketPage() {
                 <td className={cn('text-right font-bold', toneOf(stock.change))}>
                   {num(stock.currentPrice)}
                 </td>
-                <td className={cn('pr-2 text-right font-bold', toneOf(stock.change))}>
-                  {arrowOf(stock.change)} {signed(stock.change)}
+                <td className="pr-2 text-right">
+                  <PriceChange value={stock.change} mode="amount" arrow />
                 </td>
                 <td className="pr-5 text-right">
-                  <span
-                    className={cn(
-                      'inline-block rounded-md border px-1.5 py-0.5 text-[12px] font-bold',
-                      badgeToneOf(stock.change),
-                    )}
-                  >
-                    {rate(stock.changeRate)}
-                  </span>
+                  <PriceChange value={stock.changeRate} variant="badge" />
                 </td>
                 <td className="pr-5 text-right font-semibold text-foreground-tertiary">
                   {num(stock.previousPrice)}

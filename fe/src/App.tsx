@@ -28,7 +28,8 @@ export function App() {
       <AppHeader connected={connected} />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 overflow-hidden">
+        {/* 좁은 화면에서는 본문이 세로로 길어지므로 여기서 스크롤을 받는다. */}
+        <main className="min-w-0 flex-1 overflow-y-auto xl:overflow-hidden">
           <Outlet />
         </main>
       </div>

@@ -32,7 +32,7 @@ export function HistoryPage() {
   const audit = useQuery({ queryKey: qk.myAudit, queryFn: auditApi.myLogs })
 
   return (
-    <div className="h-full min-h-0 p-2.5">
+    <div className="min-h-0 p-2.5 xl:h-full">
       <Panel
         title={
           <div className="flex gap-1 rounded-lg bg-surface-muted p-0.5">
@@ -58,13 +58,13 @@ export function HistoryPage() {
             ))}
           </div>
         }
-        className="h-full"
+        className="min-h-[420px] xl:h-full"
         scroll
       >
         {tab === 'audit' ? (
           <AuditTable logs={audit.data?.list ?? []} />
         ) : tab === 'orders' ? (
-          <table className="w-full text-[13px] tnum">
+          <table className="w-full min-w-[760px] text-[13px] tnum">
             <Head cols={['주문 시각', '종목', '구분', '유형', '주문가', '주문 수량', '체결 수량', '상태']} />
             <tbody>
               {(orders.data?.list ?? []).map((o) => (
@@ -103,7 +103,7 @@ export function HistoryPage() {
             </tbody>
           </table>
         ) : (
-          <table className="w-full text-[13px] tnum">
+          <table className="w-full min-w-[760px] text-[13px] tnum">
             <Head cols={['체결 시각', '종목', '구분', '체결가', '수량', '체결 금액']} />
             <tbody>
               {(trades.data?.list ?? []).map((t) => (
@@ -142,7 +142,7 @@ export function HistoryPage() {
  */
 function AuditTable({ logs }: { logs: AuditLog[] }) {
   return (
-    <table className="w-full text-[13px] tnum">
+    <table className="w-full min-w-[760px] text-[13px] tnum">
       <Head cols={['처리 시각', '동작', '요청 내용', '결과', '메시지', '소요']} />
       <tbody>
         {logs.map((l) => (

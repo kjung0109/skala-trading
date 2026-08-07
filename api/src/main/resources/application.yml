@@ -17,10 +17,19 @@ spring:
     hibernate:
       ddl-auto: create-drop
     defer-datasource-initialization: true
-    show-sql: true
+    # 봇이 초당 수십 건을 주문하므로 SQL을 다 찍으면 콘솔 출력이 병목이 된다.
+    # 쿼리를 봐야 할 때만 켠다.
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
+
+  task:
+    scheduling:
+      # 호가 공급과 체결 유발이 각각 다른 주기로 돈다.
+      # 스레드가 하나면 느린 쪽이 빠른 쪽을 밀어낸다.
+      pool:
+        size: 2
 
   sql:
     init:
@@ -37,11 +46,13 @@ app:
   bot:
     # 자동 매매 봇. 끄려면 false
     enabled: true
-    interval-ms: 1200      # 주문 주기
-    min-depth: 6           # 매도/매수 각각 유지할 최소 호가 단계 수
-    takers-per-tick: 3     # 한 번에 낼 체결 유발 주문 수
-    market-ratio: 35       # 체결 유발 주문 중 시장가 비율(%)
+    interval-ms: 300        # 체결 유발 주기
+    takers-per-tick: 6      # 한 번에 낼 체결 유발 주문 수 (초당 20건 체결 기준)
+    market-ratio: 35        # 체결 유발 주문 중 시장가 비율(%)
     max-quantity: 15
+    quote-interval-ms: 200  # 호가 공급 주기 (체결 속도를 따라가야 최우선호가가 비지 않는다)
+    min-depth: 8            # 현재가 위아래로 유지할 호가 단계 수
+    max-depth: 16           # 한쪽에 쌓일 수 있는 최대 호가 단계 수
 
 springdoc:
   api-docs:

@@ -1,8 +1,9 @@
 /**
  * 종목 아이콘 테마.
  *
- * 로고 이미지를 쓰지 않고 종목코드를 해시해 팔레트에서 고른다.
- * 같은 종목은 화면이 바뀌어도 항상 같은 색으로 보인다.
+ * 실제 로고 이미지는 쓰지 않는다. 상표를 임의로 가져다 쓰는 셈이 되고,
+ * 종목이 늘 때마다 이미지를 챙겨야 한다. 대신 종목코드를 해시해 팔레트에서 고른다.
+ * 같은 종목은 어느 화면에서든 항상 같은 색으로 보인다.
  */
 const THEMES = ['blue', 'green', 'purple', 'yellow', 'teal', 'orange'] as const
 
@@ -22,7 +23,17 @@ export function stockLogoClass(code: string) {
   return CLASSES[THEMES[sum % THEMES.length]]
 }
 
-/** 종목명 첫 글자. 영문이면 대문자로. */
+/**
+ * 아이콘에 넣을 이니셜.
+ * 영문·숫자는 두 글자를 대문자로, 한글은 앞 두 글자를 쓴다.
+ * ("삼성전자" → 삼성 / "SK하이닉스" → SK)
+ */
 export function stockInitial(name: string) {
-  return name.trim().charAt(0).toUpperCase()
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+
+  const latin = trimmed.replace(/[^A-Za-z0-9]/g, '')
+  if (latin.length >= 2) return latin.slice(0, 2).toUpperCase()
+
+  return [...trimmed.replace(/\s+/g, '')].slice(0, 2).join('')
 }

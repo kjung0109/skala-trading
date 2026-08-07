@@ -62,12 +62,14 @@ public class DataInitializer {
             Account trader01 = new Account("trader01", encoded, 100_000_000L);
             Account trader02 = new Account("trader02", encoded, 300_000_000L);
             Account trader03 = new Account("trader03", encoded, 500_000_000L);
-            Account marketMaker = new Account(MARKET_MAKER, encoded, 10_000_000_000L);
+            // 유동성 공급 계좌는 종일 양쪽 호가를 대므로 자금이 넉넉해야 한다.
+            // 모자라면 한쪽 호가부터 조용히 사라진다.
+            Account marketMaker = new Account(MARKET_MAKER, encoded, 1_000_000_000_000L);
 
             // 자동 매매 봇 계좌.
             // 같은 계좌끼리는 체결되지 않으므로(자전거래 방지) 둘로 나눠 서로 상대가 되게 한다.
-            Account bot01 = new Account("bot01", encoded, 10_000_000_000L);
-            Account bot02 = new Account("bot02", encoded, 10_000_000_000L);
+            Account bot01 = new Account("bot01", encoded, 1_000_000_000_000L);
+            Account bot02 = new Account("bot02", encoded, 1_000_000_000_000L);
 
             accountRepository.saveAll(List.of(trader01, trader02, trader03, marketMaker, bot01, bot02));
 
@@ -76,9 +78,9 @@ public class DataInitializer {
             // 매도 주문을 내려면 주식을 갖고 있어야 한다. 유동성 공급 계좌에 물량을 준다.
             // 매도 주문을 내려면 주식을 갖고 있어야 한다. 공급 계좌와 봇에 물량을 준다.
             stocks.forEach(stock -> {
-                holdingRepository.save(new Holding(marketMaker, stock, 10_000L, stock.getPreviousPrice()));
-                holdingRepository.save(new Holding(bot01, stock, 10_000L, stock.getPreviousPrice()));
-                holdingRepository.save(new Holding(bot02, stock, 10_000L, stock.getPreviousPrice()));
+                holdingRepository.save(new Holding(marketMaker, stock, 1_000_000L, stock.getPreviousPrice()));
+                holdingRepository.save(new Holding(bot01, stock, 500_000L, stock.getPreviousPrice()));
+                holdingRepository.save(new Holding(bot02, stock, 500_000L, stock.getPreviousPrice()));
             });
             holdingRepository.flush();
 

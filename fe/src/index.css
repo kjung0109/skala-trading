@@ -104,6 +104,67 @@
 }
 
 /* ─────────────────────────────────────────────
+   Dark Mode
+
+   @theme 안이 아니라 여기서 CSS 변수만 덮어쓴다.
+   Tailwind 유틸리티(bg-surface, text-foreground …)는 그대로 두고
+   변수 값만 바뀌므로 화면 코드에 dark: 분기를 하나도 넣지 않아도 된다.
+───────────────────────────────────────────── */
+[data-theme='dark'] {
+  --color-foreground: #e8eaed;
+  --color-foreground-secondary: #bdc1ca;
+  --color-foreground-tertiary: #8a8d93;
+  --color-foreground-disabled: #55585e;
+
+  --color-background: #0f1117;
+  --color-surface: #181b24;
+  --color-surface-subtle: #1e2130;
+  --color-surface-muted: #252836;
+
+  --color-stroke: #2e3140;
+  --color-stroke-subtle: #252836;
+  --color-stroke-input: #3a3d4a;
+  --color-widget-border-hover: #3d5bd9;
+
+  --color-primary-light: #1a2147;
+  --color-primary-border: #2d3f8f;
+  --color-primary-dim: #1e2e6e;
+
+  /* 상승/하락 글자색은 그대로 두고 배경만 어둡게 반전한다 */
+  --color-up-bg: #2d0e0f;
+  --color-up-border: #7a2326;
+  --color-up-fill: rgba(232, 57, 62, 0.16);
+  --color-down-bg: #07213d;
+  --color-down-border: #1a4a7a;
+  --color-down-fill: rgba(0, 117, 232, 0.16);
+
+  --color-avatar-blue-bg: #1a2147;
+  --color-avatar-blue-border: #2d3f8f;
+  --color-avatar-blue-text: #7d9bff;
+  --color-avatar-green-bg: #052e1c;
+  --color-avatar-green-border: #065f35;
+  --color-avatar-green-text: #34d399;
+  --color-avatar-purple-bg: #1e1440;
+  --color-avatar-purple-border: #4c2e96;
+  --color-avatar-purple-text: #a78bfa;
+  --color-avatar-yellow-bg: #2a2200;
+  --color-avatar-yellow-border: #7a6200;
+  --color-avatar-yellow-text: #fcd34d;
+  --color-avatar-teal-bg: #052926;
+  --color-avatar-teal-border: #0a5e56;
+  --color-avatar-teal-text: #2dd4bf;
+  --color-avatar-orange-bg: #2a1400;
+  --color-avatar-orange-border: #7c3500;
+  --color-avatar-orange-text: #fb923c;
+
+  --shadow-control: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 20px 50px rgba(0, 0, 0, 0.6);
+  --shadow-toast: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(0, 70, 255, 0.2);
+}
+
+/* ─────────────────────────────────────────────
    Keyframes
 ───────────────────────────────────────────── */
 @keyframes pulse-dot {
@@ -177,14 +238,29 @@ body {
   margin: 0;
   background-color: var(--color-background);
   color: var(--color-foreground);
-  height: 100vh;
-  overflow: hidden; /* 데스크톱 고정 레이아웃 — 스크롤은 각 패널이 담당한다 */
+  min-height: 100vh;
 }
 
 #root {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/*
+ * 1280px 이상에서만 화면을 뷰포트에 고정한다.
+ * 호가·차트·주문을 한눈에 두려면 페이지가 스크롤되지 않아야 하고, 스크롤은 각 패널이 맡는다.
+ * 그 아래 폭에서는 4열을 다 밀어넣을 수 없어 세로로 쌓고 페이지를 스크롤시킨다.
+ */
+@media (min-width: 1280px) {
+  body {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100vh;
+  }
 }
 
 input,

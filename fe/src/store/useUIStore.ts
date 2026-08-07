@@ -1,9 +1,16 @@
 import { create } from 'zustand'
 
+const THEME_KEY = 'skala-trading-theme'
+
+export type Theme = 'light' | 'dark'
+
 export type ToastTone = 'success' | 'error' | 'info'
 export type Toast = { id: number; tone: ToastTone; message: string }
 
 type UIState = {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+
   /** 지금 보고 있는 종목. 시세·호가·주문 패널이 함께 참조한다. */
   selectedStockId: number | null
   selectStock: (stockId: number) => void
@@ -22,7 +29,25 @@ type UIState = {
 
 let seq = 0
 
+/**
+ * 저장해 둔 테마를 <html data-theme>에 반영한다.
+ * 화면이 그려지기 전에 한 번 실행돼야 라이트 화면이 번쩍이지 않는다.
+ */
+function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme
+  return theme
+}
+
+const savedTheme: Theme = localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'
+applyTheme(savedTheme)
+
 export const useUIStore = create<UIState>((set) => ({
+  theme: savedTheme,
+  setTheme: (theme) => {
+    localStorage.setItem(THEME_KEY, theme)
+    set({ theme: applyTheme(theme) })
+  },
+
   selectedStockId: null,
   selectStock: (stockId) => set({ selectedStockId: stockId }),
 

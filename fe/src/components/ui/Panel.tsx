@@ -26,7 +26,7 @@ export function Panel({ title, action, children, className, scroll, bodyClassNam
           {action}
         </header>
       )}
-      <div className={cn('min-h-0 flex-1', scroll && 'overflow-y-auto', bodyClassName)}>
+      <div className={cn('min-h-0 flex-1', scroll && 'overflow-auto', bodyClassName)}>
         {children}
       </div>
     </section>

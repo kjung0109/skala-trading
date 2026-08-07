@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { Wallet } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { accountApi } from '../api/endpoints'
+import { EmptyState } from '../components/ui/EmptyState'
 import { Panel } from '../components/ui/Panel'
+import { PriceChange } from '../components/ui/PriceChange'
 import { StockAvatar } from '../components/ui/StockAvatar'
 import { cn } from '../lib/cn'
-import { badgeToneOf, num, rate, signed, toneOf, won } from '../lib/format'
+import { num, rate, signed, toneOf, won } from '../lib/format'
 import { qk } from '../lib/queryClient'
 import { useUIStore } from '../store/useUIStore'
 
@@ -21,9 +24,9 @@ export function AssetPage() {
     account.totalAssets > 0 ? (account.balance / account.totalAssets) * 100 : 100
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2.5 p-2.5">
+    <div className="flex min-h-0 flex-col gap-2.5 p-2.5 xl:h-full">
       {/* 요약 */}
-      <section className="grid shrink-0 grid-cols-4 gap-2.5">
+      <section className="grid shrink-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
         <SummaryCard label="총 자산" value={won(account.totalAssets)} accent />
         <SummaryCard label="예수금" value={won(account.balance)} sub={`현금 비중 ${cashRatio.toFixed(1)}%`} />
         <SummaryCard label="주식 평가액" value={won(account.totalValuation)} sub={`매입 ${won(account.totalInvestment)}`} />
@@ -42,10 +45,10 @@ export function AssetPage() {
             {holdings.length}종목
           </span>
         }
-        className="min-h-0 flex-1"
+        className="min-h-[360px] xl:min-h-0 xl:flex-1"
         scroll
       >
-        <table className="w-full text-[13px] tnum">
+        <table className="w-full min-w-[840px] text-[13px] tnum">
           <thead className="sticky top-0 z-10 bg-surface-subtle text-[11px] font-bold text-foreground-tertiary">
             <tr className="border-b border-stroke">
               <th className="py-2.5 pl-5 text-left">종목</th>
@@ -86,25 +89,22 @@ export function AssetPage() {
                 </td>
                 <td className="text-right font-bold text-foreground">{num(h.currentPrice)}</td>
                 <td className="text-right font-bold text-foreground">{num(h.valuation)}</td>
-                <td className={cn('text-right font-bold', toneOf(h.profitLoss))}>
-                  {signed(h.profitLoss)}
+                <td className="text-right">
+                  <PriceChange value={h.profitLoss} mode="amount" />
                 </td>
                 <td className="pr-5 text-right">
-                  <span
-                    className={cn(
-                      'inline-block rounded-md border px-1.5 py-0.5 text-[12px] font-bold',
-                      badgeToneOf(h.profitLoss),
-                    )}
-                  >
-                    {rate(h.profitLossRate)}
-                  </span>
+                  <PriceChange value={h.profitLossRate} variant="badge" />
                 </td>
               </tr>
             ))}
             {holdings.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-16 text-center text-[13px] text-foreground-disabled">
-                  보유 중인 종목이 없습니다
+                <td colSpan={7}>
+                  <EmptyState
+                    icon={Wallet}
+                    message="보유 중인 종목이 없습니다"
+                    sub="주문 화면에서 매수하면 여기에 표시됩니다"
+                  />
                 </td>
               </tr>
             )}
