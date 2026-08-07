@@ -1,0 +1,46 @@
+# 백엔드와 프론트를 한 번에 띄운다.
+#
+#   docker compose up --build
+#   → http://localhost:5173                   거래 화면
+#   → http://localhost:8080/swagger-ui.html   API 문서
+#
+# 도커 없이도 그대로 실행된다. api 폴더에서 ./gradlew bootRun, fe 폴더에서 pnpm dev.
+#
+# 별도 DB 컨테이너를 두지 않는다. 저장소가 H2 인메모리이기 때문이다.
+# 실행할 때마다 같은 초기 상태에서 시작하는 편이 시연에 낫고,
+# 무엇보다 이 프로젝트를 받은 사람이 DB를 준비하지 않고도 바로 돌릴 수 있어야 한다.
+# 종료하면 데이터도 함께 사라진다.
+services:
+  api:
+    build: ./api
+    container_name: skala-trading-api
+    ports:
+      - "8080:8080"
+    environment:
+      # 운영이라면 반드시 외부에서 주입해야 하는 값이다. 여기 적힌 값은 로컬 확인용이다.
+      JWT_SECRET: ${JWT_SECRET:-skala-trading-compose-local-secret-key-change-me-in-production}
+      # 컨테이너의 기본 시간대는 UTC다. 그대로 두면 주문·체결 시각이 9시간 이르게 기록되어
+      # 화면에 찍히는 시각이 실제와 어긋난다.
+      TZ: Asia/Seoul
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 45s
+      retries: 6
+    restart: unless-stopped
+
+  web:
+    build: ./fe
+    container_name: skala-trading-web
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      # 개발 서버(pnpm dev)와 같은 포트로 맞춰 둔다. 주소를 새로 외울 필요가 없다.
+      - "5173:80"
+    depends_on:
+      api:
+        # 단순히 "먼저 시작"이 아니라 헬스체크 통과까지 기다린다.
+        # 백엔드가 아직 뜨는 중일 때 화면을 열면 로그인부터 실패한다.
+        condition: service_healthy
+    restart: unless-stopped
