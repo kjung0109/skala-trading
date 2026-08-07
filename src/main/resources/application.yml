@@ -3,7 +3,7 @@ spring:
     name: skala-shop-api
 
   datasource:
-    url: jdbc:h2:mem:shopdb
+    url: jdbc:h2:mem:tradingdb
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -32,8 +32,8 @@ app:
     # 운영에서는 환경변수로 주입한다. 소스에 비밀키를 두지 않는다.
     secret: ${JWT_SECRET:skala-shop-api-local-development-secret-key-please-change-in-production}
     validity-seconds: 3600
-  customer:
-    initial-point: 1000000
+  account:
+    initial-balance: 10000000
 
 springdoc:
   api-docs:

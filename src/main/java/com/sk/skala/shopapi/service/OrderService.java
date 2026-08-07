@@ -1,0 +1,220 @@
+package com.sk.skala.shopapi.service;
+
+import com.sk.skala.shopapi.common.Error;
+import com.sk.skala.shopapi.common.PagedList;
+import com.sk.skala.shopapi.common.Response;
+import com.sk.skala.shopapi.common.SessionHandler;
+import com.sk.skala.shopapi.domain.*;
+import com.sk.skala.shopapi.dto.*;
+import com.sk.skala.shopapi.exception.ResponseException;
+import com.sk.skala.shopapi.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 주문 접수와 체결(매칭)을 담당한다.
+ *
+ * 매칭 원칙은 실제 거래소와 같다.
+ * - 가격 우선 : 매수는 비싼 주문이, 매도는 싼 주문이 먼저 체결된다
+ * - 시간 우선 : 같은 가격이면 먼저 낸 주문이 먼저 체결된다
+ * - 체결 가격 : 먼저 호가창에 있던 주문의 가격으로 체결된다
+ *              (나중에 온 주문이 유리한 가격을 제시했다면 그 차액은 돌려준다)
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final TradeRepository tradeRepository;
+    private final HoldingRepository holdingRepository;
+    private final AccountRepository accountRepository;
+    private final StockRepository stockRepository;
+    private final SessionHandler sessionHandler;
+
+    /**
+     * 주문 접수 후 즉시 매칭을 시도한다.
+     *
+     * 종목 행에 쓰기 잠금을 건 뒤 시작한다.
+     * 매칭은 "호가창 조회 → 체결 대상 판단 → 잔량 갱신"이 원자적이어야 하는데,
+     * 두 요청이 같은 종목을 동시에 처리하면 같은 매도 주문을 각각 체결 대상으로 잡아
+     * 잔량이 음수가 될 수 있다. 종목 단위로 직렬화해 이를 막는다.
+     */
+    @Transactional
+    public Response placeOrder(OrderRequest request) {
+        String accountId = sessionHandler.getCurrentAccountId();
+
+        // 1) 종목 잠금 — 이 시점부터 같은 종목의 다른 주문은 대기한다
+        Stock stock = stockRepository.findByIdForUpdate(request.getStockId())
+                .orElseThrow(() -> new ResponseException(Error.DATA_NOT_FOUND,
+                        "종목을 찾을 수 없습니다: " + request.getStockId()));
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseException(Error.DATA_NOT_FOUND,
+                        "계좌를 찾을 수 없습니다: " + accountId));
+
+        long price = request.getPrice();
+        long quantity = request.getQuantity();
+
+        // 2) 자원 선점 — 주문을 내는 순간 예수금(매수) 또는 보유 수량(매도)을 묶는다.
+        //    체결될 때가 아니라 주문 시점에 묶어야, 잔고보다 많은 주문을 여러 건 낼 수 없다.
+        if (request.getSide() == OrderSide.BUY) {
+            account.withdraw(price * quantity);
+        } else {
+            reserveHolding(account, stock, quantity);
+        }
+
+        Order order = orderRepository.save(new Order(account, stock, request.getSide(), price, quantity));
+
+        // 3) 매칭
+        List<Trade> trades = match(order, stock);
+
+        log.info("[ORDER] {} {} {}주 @{} → 체결 {}건, 잔량 {}",
+                accountId, order.getSide(), quantity, price, trades.size(), order.getRemainingQuantity());
+
+        return Response.success(OrderResultDto.of(order, trades));
+    }
+
+    private List<Trade> match(Order order, Stock stock) {
+        List<Order> counterparts = (order.getSide() == OrderSide.BUY)
+                ? orderRepository.findMatchableSellOrders(stock.getId(), order.getPrice(),
+                        order.getAccount().getAccountId())
+                : orderRepository.findMatchableBuyOrders(stock.getId(), order.getPrice(),
+                        order.getAccount().getAccountId());
+
+        List<Trade> trades = new ArrayList<>();
+
+        for (Order counter : counterparts) {
+            if (order.getRemainingQuantity() == 0) {
+                break;
+            }
+
+            long tradeQuantity = Math.min(order.getRemainingQuantity(), counter.getRemainingQuantity());
+            // 먼저 호가창에 있던 쪽의 가격으로 체결한다.
+            long tradePrice = counter.getPrice();
+
+            Order buyOrder = (order.getSide() == OrderSide.BUY) ? order : counter;
+            Order sellOrder = (order.getSide() == OrderSide.BUY) ? counter : order;
+
+            settle(buyOrder, sellOrder, stock, tradePrice, tradeQuantity);
+
+            order.fill(tradeQuantity);
+            counter.fill(tradeQuantity);
+
+            Trade trade = tradeRepository.save(new Trade(stock, buyOrder, sellOrder, tradePrice, tradeQuantity));
+            trades.add(trade);
+
+            stock.applyTradePrice(tradePrice);
+        }
+        return trades;
+    }
+
+    /** 체결 정산: 매수자에게 주식을, 매도자에게 대금을 넘긴다. */
+    private void settle(Order buyOrder, Order sellOrder, Stock stock, long tradePrice, long quantity) {
+        Account buyer = buyOrder.getAccount();
+        Account seller = sellOrder.getAccount();
+
+        // 매수자는 주문 시 자기 지정가로 예수금을 묶어뒀다.
+        // 더 싼 가격에 체결됐다면 그 차액은 돌려준다.
+        long refund = (buyOrder.getPrice() - tradePrice) * quantity;
+        if (refund > 0) {
+            buyer.deposit(refund);
+        }
+
+        // 매도자는 주문 시 보유 수량을 이미 차감했으므로 대금만 받는다.
+        seller.deposit(tradePrice * quantity);
+
+        holdingRepository.findByAccountAndStock(buyer, stock)
+                .ifPresentOrElse(
+                        h -> h.addBuy(quantity, tradePrice),
+                        () -> holdingRepository.save(new Holding(buyer, stock, quantity, tradePrice)));
+    }
+
+    /** 매도 주문 시 보유 수량을 묶는다. 부족하면 주문 자체가 거부된다. */
+    private void reserveHolding(Account account, Stock stock, long quantity) {
+        Holding holding = holdingRepository.findByAccountAndStock(account, stock)
+                .orElseThrow(() -> new ResponseException(Error.INSUFFICIENT_QUANTITY,
+                        "보유하지 않은 종목입니다: " + stock.getName()));
+
+        if (holding.getQuantity() < quantity) {
+            throw new ResponseException(Error.INSUFFICIENT_QUANTITY,
+                    "보유 수량이 부족합니다. 보유: %d주, 주문: %d주".formatted(holding.getQuantity(), quantity));
+        }
+        holding.reduce(quantity);
+    }
+
+    /**
+     * 주문 취소. 미체결 잔량에 대해 묶어둔 자원을 돌려준다.
+     * 이미 체결된 부분은 되돌리지 않는다.
+     */
+    @Transactional
+    public Response cancelOrder(Long orderId) {
+        String accountId = sessionHandler.getCurrentAccountId();
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseException(Error.DATA_NOT_FOUND, "주문을 찾을 수 없습니다: " + orderId));
+
+        if (!order.getAccount().getAccountId().equals(accountId)) {
+            throw new ResponseException(Error.NOT_ORDER_OWNER, "본인의 주문만 취소할 수 있습니다");
+        }
+
+        long remaining = order.getRemainingQuantity();
+        order.cancel();   // 이미 체결·취소된 주문이면 여기서 예외
+
+        if (order.getSide() == OrderSide.BUY) {
+            order.getAccount().deposit(order.getPrice() * remaining);
+        } else {
+            Stock stock = order.getStock();
+            holdingRepository.findByAccountAndStock(order.getAccount(), stock)
+                    .ifPresentOrElse(
+                            h -> h.addBuy(remaining, h.getAveragePrice()),
+                            () -> holdingRepository.save(
+                                    new Holding(order.getAccount(), stock, remaining, stock.getCurrentPrice())));
+        }
+
+        log.info("[CANCEL] {} 주문#{} 잔량 {}주 반환", accountId, orderId, remaining);
+        return Response.success(OrderDto.from(order));
+    }
+
+    /** 호가창 */
+    public Response getOrderBook(Long stockId) {
+        Stock stock = stockRepository.findById(stockId)
+                .orElseThrow(() -> new ResponseException(Error.DATA_NOT_FOUND, "종목을 찾을 수 없습니다: " + stockId));
+
+        return Response.success(OrderBookDto.of(
+                stock,
+                orderRepository.aggregateOrderBook(stockId, OrderSide.SELL),
+                orderRepository.aggregateOrderBook(stockId, OrderSide.BUY)));
+    }
+
+    /** 내 주문 목록 */
+    public Response getMyOrders(int offset, int count) {
+        String accountId = sessionHandler.getCurrentAccountId();
+        Page<Order> page = orderRepository.findByAccountId(accountId,
+                PageRequest.of(offset / Math.max(count, 1), count));
+        return Response.success(PagedList.of(page, offset, count, OrderDto::from));
+    }
+
+    /** 내 체결 내역 */
+    public Response getMyTrades(int offset, int count) {
+        String accountId = sessionHandler.getCurrentAccountId();
+        Page<Trade> page = tradeRepository.findByAccountId(accountId,
+                PageRequest.of(offset / Math.max(count, 1), count));
+        return Response.success(PagedList.of(page, offset, count, t -> TradeDto.from(t, accountId)));
+    }
+
+    /** 종목별 체결 내역 */
+    public Response getStockTrades(Long stockId) {
+        return Response.success(tradeRepository.findByStockId(stockId).stream()
+                .map(t -> TradeDto.from(t, null))
+                .toList());
+    }
+}

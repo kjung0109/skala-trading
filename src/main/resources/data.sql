@@ -1,17 +1,14 @@
--- 초기 상품 데이터
-INSERT INTO product (product_name, product_price) VALUES
-('무선마우스',        15000),
-('블루투스키보드',    29000),
-('USB허브',          39000),
-('노트북거치대',      24000),
-('웹캠',             45000),
-('모니터암',          89000),
-('기계식키보드',     129000),
-('노이즈캔슬링헤드셋', 259000),
-('27인치모니터',     319000),
-('외장SSD 1TB',     139000);
-
--- 초기 고객 (비밀번호는 BCrypt 해시, 원문은 모두 pw1234)
-INSERT INTO customer (customer_id, customer_password, customer_point, version) VALUES
-('skala01', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 1000000, 0),
-('skala02', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 2000000, 0);
+-- 상장 종목 (계좌는 DataInitializer에서 비밀번호를 인코딩해 생성한다)
+INSERT INTO stock (code, name, current_price, previous_price) VALUES
+('005930', '삼성전자',        70000,  69000),
+('000660', 'SK하이닉스',     120000, 118000),
+('035420', 'NAVER',         200000, 195000),
+('035720', '카카오',          50000,  48000),
+('051910', 'LG화학',        450000, 440000),
+('005380', '현대차',         190000, 193000),
+('006400', '삼성SDI',       380000, 385000),
+('068270', '셀트리온',       175000, 172000),
+('105560', 'KB금융',         62000,  61000),
+('055550', '신한지주',        47000,  47500),
+('012330', '현대모비스',     235000, 230000),
+('373220', 'LG에너지솔루션', 410000, 418000);

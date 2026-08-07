@@ -46,10 +46,10 @@ public class SessionHandler {
     }
 
     /** 로그인 성공 시 토큰을 만들어 쿠키로도 내려준다. */
-    public String storeAccessToken(String customerId) {
+    public String storeAccessToken(String accountId) {
         Date now = new Date();
         String token = Jwts.builder()
-                .setSubject(customerId)
+                .setSubject(accountId)
                 .setIssuedAt(now)
                 .setExpiration(new Date(now.getTime() + validityMillis))
                 .signWith(key)
@@ -67,7 +67,7 @@ public class SessionHandler {
     }
 
     /** 현재 요청의 로그인 고객 ID. 없거나 유효하지 않으면 예외. */
-    public String getCurrentCustomerId() {
+    public String getCurrentAccountId() {
         String token = extractToken();
         if (token == null) {
             throw new ResponseException(Error.NOT_AUTHENTICATED, "로그인이 필요합니다");
