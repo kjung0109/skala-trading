@@ -22,8 +22,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import com.sk.skala.trading.account.Account;
 import com.sk.skala.trading.account.AccountRepository;
 import com.sk.skala.trading.account.Holding;
@@ -32,6 +36,7 @@ import com.sk.skala.trading.order.dto.OrderBookDto;
 import com.sk.skala.trading.order.dto.OrderDto;
 import com.sk.skala.trading.order.dto.OrderRequest;
 import com.sk.skala.trading.order.dto.OrderResultDto;
+import com.sk.skala.trading.order.dto.CandleDto;
 import com.sk.skala.trading.order.dto.TradeDto;
 
 /**
@@ -51,6 +56,12 @@ public class OrderService {
 
     /** 종목 체결 테이프에 내려줄 최근 체결 건수 */
     private static final int RECENT_TRADE_LIMIT = 200;
+
+    /** 캔들을 만들 때 훑을 체결 건수. 넓은 시간 범위를 담아야 추이가 보인다. */
+    private static final int CHART_TRADE_SCAN = 12_000;
+
+    /** 화면에 그릴 캔들 개수 상한. 이보다 많으면 봉이 뭉개져 읽히지 않는다. */
+    private static final int CHART_MAX_CANDLES = 240;
 
     private final OrderRepository orderRepository;
     private final TradeRepository tradeRepository;
@@ -344,6 +355,65 @@ public class OrderService {
         Page<Trade> page = tradeRepository.findByAccountId(accountId,
                 PageRequest.of(offset / Math.max(count, 1), count));
         return Response.success(PagedList.of(page, offset, count, t -> TradeDto.from(t, accountId)));
+    }
+
+    /**
+     * 종목 가격 추이(캔들).
+     *
+     * 체결을 지정한 시간 구간으로 접어 구간마다 시가·고가·저가·종가·거래량을 만든다.
+     * 실제 증권 화면과 같은 형태로 보이게 하려면 선 하나가 아니라 이 다섯 값이 필요하다.
+     *
+     * @param intervalSeconds 캔들 하나가 담는 시간(초)
+     */
+    public Response getCandles(Long stockId, int intervalSeconds) {
+        int interval = Math.max(intervalSeconds, 1);
+
+        List<Object[]> rows = tradeRepository.findRecentTradePoints(
+                stockId, PageRequest.of(0, CHART_TRADE_SCAN));
+
+        // 조회 결과가 최신순이므로 뒤에서부터 훑어 시간순으로 쌓는다.
+        Map<LocalDateTime, long[]> buckets = new LinkedHashMap<>();
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            LocalDateTime tradedAt = (LocalDateTime) rows.get(i)[0];
+            long price = ((Number) rows.get(i)[1]).longValue();
+            long quantity = ((Number) rows.get(i)[2]).longValue();
+
+            LocalDateTime bucket = truncate(tradedAt, interval);
+            long[] ohlcv = buckets.get(bucket);
+
+            if (ohlcv == null) {
+                // [시가, 고가, 저가, 종가, 거래량]
+                buckets.put(bucket, new long[]{price, price, price, price, quantity});
+            } else {
+                ohlcv[1] = Math.max(ohlcv[1], price);
+                ohlcv[2] = Math.min(ohlcv[2], price);
+                ohlcv[3] = price;
+                ohlcv[4] += quantity;
+            }
+        }
+
+        List<CandleDto> candles = buckets.entrySet().stream()
+                .map(e -> CandleDto.builder()
+                        .time(e.getKey())
+                        .open(e.getValue()[0])
+                        .high(e.getValue()[1])
+                        .low(e.getValue()[2])
+                        .close(e.getValue()[3])
+                        .volume(e.getValue()[4])
+                        .build())
+                .toList();
+
+        // 구간이 짧으면 캔들이 너무 많아진다. 최근 것부터 상한만큼만 남긴다.
+        if (candles.size() > CHART_MAX_CANDLES) {
+            candles = candles.subList(candles.size() - CHART_MAX_CANDLES, candles.size());
+        }
+        return Response.success(candles);
+    }
+
+    /** 시각을 구간 시작점으로 내린다. (예: 5초 구간에서 12:00:07 → 12:00:05) */
+    private LocalDateTime truncate(LocalDateTime time, int intervalSeconds) {
+        long epoch = time.toEpochSecond(ZoneOffset.UTC);
+        return LocalDateTime.ofEpochSecond(epoch - Math.floorMod(epoch, intervalSeconds), 0, ZoneOffset.UTC);
     }
 
     /** 종목별 최근 체결 내역 */

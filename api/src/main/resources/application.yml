@@ -52,8 +52,8 @@ app:
     enabled: true
     interval-ms: 300        # 체결 유발 주기
     takers-per-tick: 6      # 한 번에 낼 체결 유발 주문 수 (초당 20건 체결 기준)
-    market-ratio: 35        # 체결 유발 주문 중 시장가 비율(%)
-    max-quantity: 15
+    market-ratio: 15        # 체결 유발 주문 중 시장가 비율(%). 시장가는 여러 호가를 훑어 가격을 크게 움직인다
+    max-quantity: 10        # 주문 한 건이 최우선호가를 통째로 걷어가지 않을 정도
     quote-interval-ms: 200  # 호가 공급 주기 (체결 속도를 따라가야 최우선호가가 비지 않는다)
     min-depth: 8            # 현재가 위아래로 유지할 호가 단계 수
     max-depth: 16           # 한쪽에 쌓일 수 있는 최대 호가 단계 수

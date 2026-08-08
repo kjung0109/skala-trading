@@ -18,6 +18,7 @@ export const qk = {
   stocks: ['stocks'] as const,
   orderBook: (stockId: number) => ['orderBook', stockId] as const,
   trades: (stockId: number) => ['trades', stockId] as const,
+  chart: (stockId: number, interval: number) => ['chart', stockId, interval] as const,
   me: ['account', 'me'] as const,
   myOrders: ['orders', 'me'] as const,
   myTrades: ['trades', 'me'] as const,

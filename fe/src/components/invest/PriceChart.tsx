@@ -1,52 +1,60 @@
 import {
-  AreaSeries,
+  CandlestickSeries,
   createChart,
+  HistogramSeries,
   type IChartApi,
   type ISeriesApi,
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { useEffect, useMemo, useRef } from 'react'
-import type { Trade } from '../../api/types'
+import type { Candle } from '../../api/types'
 import { useUIStore } from '../../store/useUIStore'
 
 type Props = {
-  trades: Trade[]
-  /** 색 기준선. 전일 종가보다 위면 빨강, 아래면 파랑으로 그린다. */
-  baseline: number
+  candles: Candle[]
+  /** 전일 종가. 기준선으로 그리고 캔들 색의 기준이 된다. */
+  previousClose: number
 }
 
+// 국내 증시 관례 — 상승 빨강, 하락 파랑
 const UP = '#E8393E'
 const DOWN = '#0075E8'
 
 /**
- * 체결 내역을 이어 붙여 만든 가격 추이.
+ * 가격 추이 캔들 차트.
  *
- * 외부 시세 API를 쓰지 않으므로 차트도 우리 체결 데이터로만 그린다.
- * lightweight-charts는 같은 시각의 점을 허용하지 않아 초 단위로 접어서 넣는다.
+ * 외부 시세 API를 쓰지 않으므로 캔들도 우리 체결 데이터로 만든다.
+ * 구간을 접어 시가·고가·저가·종가를 뽑는 일은 서버가 한다.
  */
-export function PriceChart({ trades, baseline }: Props) {
+export function PriceChart({ candles, previousClose }: Props) {
   const theme = useUIStore((s) => s.theme)
   const boxRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
-  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null)
+  const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null)
 
-  const points = useMemo(() => {
-    const bySecond = new Map<number, number>()
-    // 서버는 최신순으로 내려주므로 뒤집어 시간 오름차순으로 만든다.
-    //
-    // tradedAt은 시간대가 없는 한국 시각 문자열이다. 그냥 파싱하면 KST로 해석되는데
+  const { bars, volumes } = useMemo(() => {
+    // time은 시간대가 없는 한국 시각 문자열이다. 그냥 파싱하면 KST로 해석되는데
     // 차트는 UTC 기준으로 축을 그려서 체결 테이프보다 9시간 이르게 표시된다.
     // 문자열을 UTC로 읽히게 해 축 눈금이 화면의 다른 시각과 맞게 한다.
-    for (const t of [...trades].reverse()) {
-      bySecond.set(Math.floor(Date.parse(`${t.tradedAt}Z`) / 1000), t.price)
-    }
-    return [...bySecond.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([time, value]) => ({ time: time as UTCTimestamp, value }))
-  }, [trades])
+    const toTime = (iso: string) => (Date.parse(`${iso}Z`) / 1000) as UTCTimestamp
 
-  const rising = (points.at(-1)?.value ?? baseline) >= baseline
-  const color = rising ? UP : DOWN
+    return {
+      bars: candles.map((c) => ({
+        time: toTime(c.time),
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      })),
+      // 거래량 막대도 캔들과 같은 색으로 칠해 두 영역을 눈으로 잇는다.
+      volumes: candles.map((c) => ({
+        time: toTime(c.time),
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(232,57,62,0.4)' : 'rgba(0,117,232,0.4)',
+      })),
+    }
+  }, [candles])
 
   useEffect(() => {
     if (!boxRef.current) return
@@ -62,38 +70,58 @@ export function PriceChart({ trades, baseline }: Props) {
         // 차트 아래에 출처 표기를 따로 뒀다(ChartAttribution).
         attributionLogo: false,
       },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.15, bottom: 0.1 } },
-      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
-      // 차트는 캔버스라 CSS 변수를 따라오지 않는다. 색은 테마에 맞춰 직접 넣는다.
-      handleScale: false,
-      handleScroll: false,
+      rightPriceScale: {
+        borderVisible: false,
+        // 아래 25%는 거래량 자리로 비워둔다.
+        scaleMargins: { top: 0.08, bottom: 0.27 },
+      },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: true },
+      handleScale: { axisPressedMouseMove: false },
+      handleScroll: { horzTouchDrag: false, vertTouchDrag: false },
     })
 
-    seriesRef.current = chart.addSeries(AreaSeries, {
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: false,
+    candleRef.current = chart.addSeries(CandlestickSeries, {
+      upColor: UP,
+      downColor: DOWN,
+      borderUpColor: UP,
+      borderDownColor: DOWN,
+      wickUpColor: UP,
+      wickDownColor: DOWN,
       priceFormat: { type: 'price', precision: 0, minMove: 1 },
     })
+
+    volumeRef.current = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      // 별도 축에 붙여 가격과 눈금을 공유하지 않게 한다.
+      priceScaleId: 'volume',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    })
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.78, bottom: 0 },
+    })
+
     chartRef.current = chart
 
     return () => {
       chart.remove()
       chartRef.current = null
-      seriesRef.current = null
+      candleRef.current = null
+      volumeRef.current = null
     }
   }, [])
 
   useEffect(() => {
     const chart = chartRef.current
-    const series = seriesRef.current
-    if (!chart || !series) return
+    const candleSeries = candleRef.current
+    const volumeSeries = volumeRef.current
+    if (!chart || !candleSeries || !volumeSeries) return
 
     const dark = theme === 'dark'
     chart.applyOptions({
       layout: { textColor: dark ? '#8A8D93' : '#9CA3AF' },
       grid: {
-        vertLines: { visible: false },
+        vertLines: { color: dark ? '#20232F' : '#F6F7F9' },
         horzLines: { color: dark ? '#252836' : '#F3F4F6' },
       },
       crosshair: {
@@ -102,23 +130,38 @@ export function PriceChart({ trades, baseline }: Props) {
       },
     })
 
-    series.applyOptions({
-      lineColor: color,
-      topColor: rising ? 'rgba(232,57,62,0.22)' : 'rgba(0,117,232,0.22)',
-      bottomColor: dark ? 'rgba(24,27,36,0)' : 'rgba(255,255,255,0)',
-    })
-    series.setData(points)
-  }, [points, color, rising, theme])
+    candleSeries.setData(bars)
+    volumeSeries.setData(volumes)
 
-  // 컨테이너를 조건부로 렌더하면 안 된다.
-  // 체결이 없는 동안 ref가 비어 생성 이펙트가 그냥 종료되고, deps가 비어 있어 다시 시도하지 않는다.
-  // 그래서 데이터가 들어와도 빈 상자만 남았다. 상자는 항상 두고 안내 문구를 위에 겹친다.
+    // 받아온 구간 전체가 화면에 들어오게 맞춘다. 이걸 하지 않으면 기본 배율 때문에
+    // 최근 몇 개 봉만 크게 보이고 나머지가 화면 밖으로 밀린다.
+    chart.timeScale().fitContent()
+  }, [bars, volumes, theme])
+
+  // 전일 종가 기준선. 실제 증권 화면에서 오늘의 등락을 가늠하는 기준이다.
+  useEffect(() => {
+    const candleSeries = candleRef.current
+    if (!candleSeries || !previousClose) return
+
+    const line = candleSeries.createPriceLine({
+      price: previousClose,
+      color: theme === 'dark' ? '#55585E' : '#9CA3AF',
+      lineWidth: 1,
+      lineStyle: 2, // dashed
+      axisLabelVisible: true,
+      title: '전일',
+    })
+    return () => candleSeries.removePriceLine(line)
+  }, [previousClose, theme])
+
   return (
     <div className="relative h-full w-full">
+      {/* 컨테이너를 조건부로 렌더하면 안 된다. 체결이 없는 동안 ref가 비어 생성 이펙트가
+          그냥 종료되고, deps가 비어 있어 다시 시도하지 않는다. 상자는 항상 두고 문구를 겹친다. */}
       <div ref={boxRef} className="h-full w-full" />
-      {points.length === 0 && (
+      {bars.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-[12px] text-foreground-disabled">
-          체결이 쌓이면 가격 추이가 그려집니다
+          체결이 쌓이면 캔들이 그려집니다
         </div>
       )}
     </div>

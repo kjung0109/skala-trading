@@ -5,6 +5,7 @@ import com.sk.skala.trading.stock.Stock;
 import com.sk.skala.trading.order.OrderService;
 import com.sk.skala.trading.stock.StockService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -57,6 +58,20 @@ public class StockController {
     })
     public Response getOrderBook(@PathVariable Long id) {
         return orderService.getOrderBook(id);
+    }
+
+    @GetMapping("/{id}/chart")
+    @Operation(summary = "가격 추이 (캔들)",
+            description = "체결을 지정한 시간 구간으로 접어 시가·고가·저가·종가·거래량을 만든다. 차트용이다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 종목")
+    })
+    public Response getCandles(
+            @PathVariable Long id,
+            @Parameter(description = "캔들 하나가 담는 시간(초)")
+            @RequestParam(defaultValue = "5") int interval) {
+        return orderService.getCandles(id, interval);
     }
 
     @GetMapping("/{id}/trades")

@@ -101,6 +101,16 @@ export type OrderResult = {
   message: string
 }
 
+/** 캔들 하나. 서버가 체결을 시간 구간으로 접어 만들어 내려준다. */
+export type Candle = {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 /** AOP가 남긴 주문 처리 기록 */
 export type AuditLog = {
   logId: number

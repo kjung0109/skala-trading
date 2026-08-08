@@ -106,7 +106,7 @@ public class MarketMakerBot {
         Set<Long> askPrices = new HashSet<>(levelPrices(stock, OrderSide.SELL));
         Set<Long> bidPrices = new HashSet<>(levelPrices(stock, OrderSide.BUY));
 
-        long mid = stock.getCurrentPrice();
+        long mid = onGrid(stock.getCurrentPrice());
         long tick = tickOf(stock);
         long bestAsk = askPrices.stream().mapToLong(Long::longValue).min().orElse(Long.MAX_VALUE);
         long bestBid = bidPrices.stream().mapToLong(Long::longValue).max().orElse(0L);
@@ -138,7 +138,9 @@ public class MarketMakerBot {
         // 멀수록 두껍게 두되, 최우선호가도 주문 한 건에 사라지지 않을 만큼은 채운다.
         // 처음엔 최우선호가에 5~15주만 뒀더니 거래가 몰리는 종목일수록 안쪽이 계속 비어
         // 스프레드가 10틱 넘게 벌어졌다. 실제 시장은 거래가 많은 종목일수록 촘촘하다.
-        request.setQuantity((long) random.nextInt(20, 40 + step * 12));
+        // 최우선호가가 주문 몇 건에 사라지면 가격이 계속 튄다. 실제로 거래가 많은 종목일수록
+        // 최우선호가가 두껍다. 멀수록 더 두껍게 둔다.
+        request.setQuantity((long) random.nextInt(60, 120 + step * 30));
 
         submit(MAKER, request);
     }
@@ -188,7 +190,8 @@ public class MarketMakerBot {
     private void takeLiquidity(Stock stock, ThreadLocalRandom random) {
         OrderRequest request = new OrderRequest();
         request.setStockId(stock.getId());
-        OrderSide side = random.nextBoolean() ? OrderSide.BUY : OrderSide.SELL;
+
+        OrderSide side = pickSide(stock, random);
         request.setSide(side);
         request.setQuantity((long) random.nextInt(1, maxQuantity + 1));
 
@@ -196,15 +199,50 @@ public class MarketMakerBot {
             // 시장가는 걸려 있던 호가를 소진시키므로 현재가가 실제로 움직인다.
             request.setType(OrderType.MARKET);
         } else {
-            // 지정가라도 상대 호가를 넘겨서 내야 체결된다.
-            long offset = tickOf(stock) * random.nextInt(1, 4);
-            long price = stock.getCurrentPrice()
-                    + (request.getSide() == OrderSide.BUY ? offset : -offset);
+            // 최우선 반대호가를 그대로 노린다.
+            // 처음에는 현재가에서 1~3틱씩 넘겨 냈는데, 그러면 체결마다 가격이 반드시 움직여
+            // 1분 등락폭이 1%를 넘었다. 실제 시장은 대부분의 체결이 최우선호가에서 일어나고
+            // 그 물량이 다 소진될 때만 가격이 한 칸 움직인다.
+            Long best = bestOpposite(stock, side);
+            if (best == null) {
+                return;   // 상대 호가가 없으면 이번 tick은 건너뛴다
+            }
+            // 가끔은 한 칸 더 넘겨 내 호가가 실제로 뚫리게 한다.
+            long offset = random.nextInt(100) < 15 ? tickOf(stock) : 0;
+            long price = best + (side == OrderSide.BUY ? offset : -offset);
+
             request.setType(OrderType.LIMIT);
-            request.setPrice(Math.max(price, 1));
+            request.setPrice(Math.max(onGrid(price), 1));
         }
 
         submit(side == OrderSide.BUY ? TAKER_BUY : TAKER_SELL, request);
+    }
+
+    /**
+     * 매수·매도 방향을 고른다.
+     *
+     * 완전 무작위로 고르면 가격이 제약 없는 랜덤워크가 되어 하루면 터무니없는 값까지 흘러간다.
+     * 실제 장중 가격은 전일 종가 근처를 오간다. 전일 종가에서 멀어질수록 되돌리는 방향이
+     * 많이 나오게 해 그 성질을 흉내 낸다.
+     */
+    private OrderSide pickSide(Stock stock, ThreadLocalRandom random) {
+        double reference = stock.getPreviousPrice();
+        double deviation = (stock.getCurrentPrice() - reference) / reference;
+
+        // 전일 종가 대비 1% 벗어나면 되돌리는 쪽이 85% 나온다.
+        double buyProbability = 0.5 - Math.max(-0.35, Math.min(0.35, deviation * 35));
+        return random.nextDouble() < buyProbability ? OrderSide.BUY : OrderSide.SELL;
+    }
+
+    /** 반대편 최우선호가. 매수면 최저 매도호가, 매도면 최고 매수호가. */
+    private Long bestOpposite(Stock stock, OrderSide side) {
+        List<Long> prices = levelPrices(stock, side == OrderSide.BUY ? OrderSide.SELL : OrderSide.BUY);
+        if (prices.isEmpty()) {
+            return null;
+        }
+        return side == OrderSide.BUY
+                ? prices.stream().mapToLong(Long::longValue).min().getAsLong()
+                : prices.stream().mapToLong(Long::longValue).max().getAsLong();
     }
 
     // ────────────────────────────────────────────────────────
@@ -225,8 +263,29 @@ public class MarketMakerBot {
                 .toList();
     }
 
-    /** 호가 단위. 종목 가격대에 비례시켜 저가주와 고가주가 같은 폭으로 움직이게 한다. */
+    /**
+     * 호가 단위. 한국거래소 규정을 그대로 따른다.
+     *
+     * 처음에는 현재가의 0.1%로 잡았는데, 그러면 230,764원 같은 호가가 만들어진다.
+     * 실제 주식은 가격대별 호가단위의 배수로만 존재하므로 화면이 곧바로 어색해 보인다.
+     */
     private long tickOf(Stock stock) {
-        return Math.max(stock.getCurrentPrice() / 1000, 1);
+        return tickOf(stock.getCurrentPrice());
+    }
+
+    private long tickOf(long price) {
+        if (price < 2_000) return 1;
+        if (price < 5_000) return 5;
+        if (price < 20_000) return 10;
+        if (price < 50_000) return 50;
+        if (price < 200_000) return 100;
+        if (price < 500_000) return 500;
+        return 1_000;
+    }
+
+    /** 호가단위 격자에 맞춰 내린다. 격자를 벗어난 가격은 실제로 존재할 수 없다. */
+    private long onGrid(long price) {
+        long tick = tickOf(price);
+        return Math.max(price / tick * tick, tick);
     }
 }

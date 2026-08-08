@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { stockApi } from '../../api/endpoints'
 import type { OrderBook, Stock } from '../../api/types'
 import { cn } from '../../lib/cn'
@@ -9,6 +10,13 @@ import { StockAvatar } from '../ui/StockAvatar'
 import { ChartAttribution, PriceChart } from './PriceChart'
 import { StockSearch } from './StockSearch'
 
+/** 캔들 구간. 실제 증권 앱의 분봉 선택과 같은 역할이다. */
+const INTERVALS = [
+  { seconds: 5, label: '5초' },
+  { seconds: 15, label: '15초' },
+  { seconds: 60, label: '1분' },
+]
+
 type Props = { stock: Stock }
 
 /** 주문 화면 왼쪽. 종목 선택 · 현재가 · 요약 지표 · 가격 추이를 한 덩어리로 둔다. */
@@ -16,6 +24,16 @@ export function StockOverview({ stock }: Props) {
   const { data: trades } = useQuery({
     queryKey: qk.trades(stock.id),
     queryFn: () => stockApi.trades(stock.id),
+  })
+  // 차트는 체결 테이프와 갱신 주기를 나눈다.
+  // 체결마다 다시 그릴 필요가 없고(초당 수십 건이다), 구간으로 접힌 데이터라
+  // 구간보다 자주 받아봐야 같은 값이다.
+  const [interval, setInterval] = useState(INTERVALS[0].seconds)
+  const { data: candles } = useQuery({
+    queryKey: qk.chart(stock.id, interval),
+    queryFn: () => stockApi.candles(stock.id, interval),
+    refetchInterval: interval * 1_000,
+    staleTime: interval * 1_000,
   })
   const { data: book } = useQuery({
     queryKey: qk.orderBook(stock.id),
@@ -56,12 +74,29 @@ export function StockOverview({ stock }: Props) {
 
       <Summary stock={stock} book={book} tradeCount={trades?.length ?? 0} />
 
-      <div className="flex min-h-[220px] flex-1 flex-col px-1 pt-1">
-        <div className="min-h-0 flex-1">
-          <PriceChart trades={trades ?? []} baseline={stock.previousPrice} />
-        </div>
-        <div className="flex shrink-0 justify-end px-2 pb-1">
+      <div className="flex min-h-[260px] flex-1 flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-stroke-subtle px-3 py-1.5">
+          <div className="flex gap-1">
+            {INTERVALS.map((it) => (
+              <button
+                key={it.seconds}
+                onClick={() => setInterval(it.seconds)}
+                className={cn(
+                  'rounded-md px-2 py-0.5 text-[11px] font-bold transition',
+                  interval === it.seconds
+                    ? 'bg-primary-light text-primary'
+                    : 'text-foreground-disabled hover:bg-surface-muted hover:text-foreground-secondary',
+                )}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
           <ChartAttribution />
+        </div>
+
+        <div className="min-h-0 flex-1 px-1 pt-1">
+          <PriceChart candles={candles ?? []} previousClose={stock.previousPrice} />
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@ import { api } from './client'
 import type {
   AccountSummary,
   AuditLog,
+  Candle,
   LoginResult,
   Order,
   OrderBook,
@@ -27,6 +28,8 @@ export const stockApi = {
   list: () => api.get<Paged<Stock>>('/stocks/list?offset=0&count=100'),
   orderBook: (stockId: number) => api.get<OrderBook>(`/stocks/${stockId}/orderbook`),
   trades: (stockId: number) => api.get<Trade[]>(`/stocks/${stockId}/trades`),
+  candles: (stockId: number, interval: number) =>
+    api.get<Candle[]>(`/stocks/${stockId}/chart?interval=${interval}`),
 }
 
 export type PlaceOrderInput = {

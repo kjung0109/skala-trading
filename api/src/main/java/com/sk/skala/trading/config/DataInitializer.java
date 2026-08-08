@@ -98,11 +98,11 @@ public class DataInitializer {
     /**
      * 종목별 호가창 초기화.
      * 현재가를 기준으로 위아래 3단계씩 매도·매수 호가를 걸어둔다.
-     * 호가 단위는 가격대마다 다르므로 현재가의 0.1% 정도를 한 칸으로 잡는다.
+     * 호가 단위는 한국거래소 규정을 따른다. 격자를 벗어난 가격은 실제로 존재할 수 없다.
      */
     private void seedOrderBook(OrderRepository orderRepository, Account maker, Stock stock) {
         long price = stock.getCurrentPrice();
-        long tick = Math.max(price / 1000, 1);
+        long tick = krxTick(price);
 
         for (int i = 1; i <= 3; i++) {
             long askPrice = price + tick * i;
@@ -114,5 +114,16 @@ public class DataInitializer {
                 orderRepository.save(new Order(maker, stock, OrderSide.BUY, OrderType.LIMIT, bidPrice, quantity));
             }
         }
+    }
+
+    /** 한국거래소 호가단위. MarketMakerBot과 같은 규칙을 쓴다. */
+    private long krxTick(long price) {
+        if (price < 2_000) return 1;
+        if (price < 5_000) return 5;
+        if (price < 20_000) return 10;
+        if (price < 50_000) return 50;
+        if (price < 200_000) return 100;
+        if (price < 500_000) return 500;
+        return 1_000;
     }
 }
