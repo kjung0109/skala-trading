@@ -1,7 +1,9 @@
 package com.sk.skala.trading.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -9,6 +11,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class AppConfig {
+
+    /** Swagger Authorize 에 표시할 인증 방식 이름. 컨트롤러의 @SecurityRequirement 와 맞춰야 한다. */
+    public static final String BEARER_AUTH = "bearerAuth";
 
     /**
      * 비밀번호 해시.
@@ -39,11 +44,18 @@ public class AppConfig {
                         LIMIT(지정가)  : 조건이 맞지 않으면 호가창에서 대기
                         MARKET(시장가) : 현재 호가로 즉시 체결, 못 채운 잔량은 소멸
 
-                        [주문·취소는 로그인이 필요합니다]
-                        POST /api/accounts/login 으로 로그인하면 쿠키(bff-access)가 발급되어
-                        이후 요청에 자동으로 실립니다. Swagger에서도 그대로 동작합니다.
                         데모 계좌: trader01 ~ trader03 / 비밀번호 pw1234
                         """)
-                .version("v1.0.0"));
+                        .version("v1.0.0"))
+                // 인증 방식을 문서에 선언해야 Swagger 화면에 Authorize 버튼이 생긴다.
+                // 선언만으로는 어떤 API에 필요한지 알 수 없으므로,
+                // 실제 표시는 각 컨트롤러의 @SecurityRequirement 가 결정한다.
+                .components(new Components().addSecuritySchemes(BEARER_AUTH,
+                        new SecurityScheme()
+                                .name(BEARER_AUTH)
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")
+                                .description("로그인 응답의 accessToken 값을 그대로 붙여넣습니다.")));
     }
 }

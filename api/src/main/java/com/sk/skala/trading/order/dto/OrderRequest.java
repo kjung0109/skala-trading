@@ -1,5 +1,6 @@
 package com.sk.skala.trading.order.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.sk.skala.trading.order.OrderSide;
 import com.sk.skala.trading.order.OrderType;
 import jakarta.validation.constraints.Min;
@@ -14,6 +15,14 @@ import lombok.Setter;
 @NoArgsConstructor
 public class OrderRequest {
 
+    /**
+     * 시장가 주문인지 판단하는 내부 헬퍼.
+     *
+     * @JsonIgnore가 없으면 Jackson이 isXxx()를 boolean 속성으로 보고
+     * 요청 스키마에 marketOrder 필드를 만들어 낸다. 입력값이 아닌데
+     * Swagger 예시에 나타나 무엇을 넣어야 하는지 헷갈리게 한다.
+     */
+    @JsonIgnore
     public boolean isMarketOrder() {
         return type == OrderType.MARKET;
     }

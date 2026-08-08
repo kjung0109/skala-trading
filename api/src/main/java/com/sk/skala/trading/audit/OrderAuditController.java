@@ -4,6 +4,7 @@ import com.sk.skala.trading.common.Response;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "감사 로그", description = "AOP로 수집한 주문 처리 기록")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/audit")
 @RequiredArgsConstructor

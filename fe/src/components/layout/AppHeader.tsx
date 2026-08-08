@@ -1,6 +1,9 @@
+import { useQuery } from '@tanstack/react-query'
 import { LogOut, Moon, Sun } from 'lucide-react'
+import { accountApi } from '../../api/endpoints'
 import { cn } from '../../lib/cn'
 import { num, toneOf } from '../../lib/format'
+import { qk } from '../../lib/queryClient'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useUIStore } from '../../store/useUIStore'
 import { LiveDot } from '../ui/LiveDot'
@@ -9,8 +12,15 @@ import { PriceChange } from '../ui/PriceChange'
 type Props = { connected: boolean }
 
 export function AppHeader({ connected }: Props) {
-  const account = useAuthStore((s) => s.account)
   const logout = useAuthStore((s) => s.logout)
+  // 로그인 시점에 받아둔 값. 첫 조회가 끝나기 전 잠깐 쓰인다.
+  const cached = useAuthStore((s) => s.account)
+
+  // 예수금과 총자산은 체결될 때마다 바뀐다.
+  // 스토어에 담아두면 로그인 시점 값에서 멈춰 있으므로, 다른 화면과 같은 캐시를 구독한다.
+  // 주문이 체결되거나 시세가 움직이면 qk.me가 무효화되어 여기까지 함께 갱신된다.
+  const { data } = useQuery({ queryKey: qk.me, queryFn: accountApi.me, enabled: cached != null })
+  const account = data ?? cached
 
   return (
     <header className="flex h-header shrink-0 items-center gap-3 border-b border-stroke bg-surface px-4 xl:gap-4 xl:px-5">
@@ -40,7 +50,7 @@ export function AppHeader({ connected }: Props) {
         <>
           <div className="hidden items-center gap-5 lg:flex">
             <Metric label="예수금" value={`${num(account.balance)}원`} />
-            <Metric label="총 평가" value={`${num(account.totalAssets)}원`} />
+            <Metric label="총 자산" value={`${num(account.totalAssets)}원`} />
             <Metric
               label="총 손익"
               value={`${account.totalProfitLoss > 0 ? '+' : ''}${num(account.totalProfitLoss)}원`}

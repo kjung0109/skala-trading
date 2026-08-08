@@ -6,6 +6,7 @@ import com.sk.skala.trading.account.AccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class AccountController {
 
     @PostMapping("/logout")
     @Operation(summary = "로그아웃")
+    @SecurityRequirement(name = "bearerAuth")
     public Response logout() {
         return accountService.logout();
     }
@@ -54,6 +56,7 @@ public class AccountController {
             @ApiResponse(responseCode = "200", description = "조회 성공"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함")
     })
+    @SecurityRequirement(name = "bearerAuth")
     public Response getMySummary() {
         return accountService.getMySummary();
     }

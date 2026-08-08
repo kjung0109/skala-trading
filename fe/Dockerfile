@@ -21,5 +21,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
+# localhost가 아니라 127.0.0.1로 확인한다.
+# 컨테이너의 /etc/hosts는 localhost를 IPv6(::1)에도 매핑하는데 nginx는 IPv4만 듣고 있어,
+# localhost로 검사하면 화면이 정상인데도 계속 unhealthy로 잡힌다.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1/ || exit 1
